@@ -1,17 +1,38 @@
 package main
 
 import (
-  "net/http"
-  "log"
+	"log"
+	"net/http"
+	"fmt"
 )
 
-func main(){
-  log.Println("Starting..")
+type SuperController struct {
+	Bleh string
+}
 
-  router := &InitiumRouter{}
+func (p *SuperController) registerMethods() []TestFunc {
+	aval := []TestFunc{p.testFunction}
+	p.Bleh = "a123412"
+	return aval
+}
 
-  err := http.ListenAndServe(":1234", router)
-  if err != nil {
-    log.Fatal("ListenAndServe: ", err)
-  }
+func (p *SuperController) testFunction(val int) bool {
+	log.Println("Hello World from testFunction!", p.Bleh, val)
+	p.Bleh = "123"
+	return true
+}
+
+func main() {
+	log.Println("Starting..")
+  supcont := &SuperController{Bleh: "alamakota"}
+	supcont.
+	log.Printf("%+v, %+v\n", supcont, supcont.testFunction)
+	router := &InitiumRouter{}
+
+	router.RegisterController(supcont)
+	log.Println(supcont.Bleh)
+	err := http.ListenAndServe(":1234", router)
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
 }
