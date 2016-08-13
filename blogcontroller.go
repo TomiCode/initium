@@ -6,12 +6,12 @@ type BlogController struct {
 }
 
 func (controller* BlogController) routingRegister() []ControllerRoute {
-	return []ControllerRoute{
-		ControllerRoute{"/{index}", "GET", controller.index},
-	}
+  return []ControllerRoute{
+    ControllerRoute{"/{index}", "GET", controller.index},
+  }
 }
 
 func (controller* BlogController) index() bool {
-	fmt.Println("BlogController index.")
-	return true
+  fmt.Println("BlogController index.")
+  return true
 }
