@@ -11,7 +11,15 @@ import (
 type RequestParameters struct {
 }
 
-type RequestFunction func() bool
+type InitiumRequest struct {
+  req *http.Request
+  resw http.ResponseWriter
+
+  params map[string]string
+  template string
+}
+
+type RequestFunction func(*InitiumRequest)(bool)
 
 type ControllerRoute struct {
   path string
@@ -46,9 +54,9 @@ func (router* InitiumRouter) RegisterController(controller InitiumController) {
       }
     }
 
-    expr, err := regexp.Compile(strings.Join(urlparts, "/"))
+    expr, err := regexp.Compile("^" + strings.Join(urlparts, "/") + "$")
     if err != nil {
-      log.Fatal("Can not compile regular expression for route:", v.path)
+      log.Println("[Warn] Can not compile regular expression for route:", v.path)
       continue;
     }
     router.routes = append(router.routes, &RoutingCollection{
@@ -65,8 +73,27 @@ func (router* InitiumRouter) RegisterController(controller InitiumController) {
 func (router* InitiumRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   for _, route := range router.routes {
     if route.expr.MatchString(r.URL.Path) && route.method == r.Method {
-      log.Println("Found route for", r.URL.Path);
-      route.fn()
+      var params = make(map[string]string)
+
+      if len(route.params) > 0 {
+        // Check for [0] == r.URL.Path
+        for idx, val := range route.expr.FindStringSubmatch(r.URL.Path) {
+          if idx == 0 || val == "" {
+            continue;
+          }
+          params[route.params[idx - 1]] = val
+        }
+      }
+      for param, val := range r.URL.Query() {
+        params[param] = val[0];
+      }
+
+      fnRequest := &InitiumRequest{req: r, resw: w, params: params}
+      if !route.fn(fnRequest) {
+        log.Println("Handling template result", fnRequest.template);
+      }
+
+      return
     }
   }
 }

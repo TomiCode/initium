@@ -7,7 +7,6 @@ import (
 
 func main() {
   log.Println("Starting..")
-  // blog := &BlogController{}
   router := &InitiumRouter{}
 
   router.RegisterController(&BlogController{})
