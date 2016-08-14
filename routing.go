@@ -6,6 +6,10 @@ import (
   "log"
   "net/http"
   "reflect"
+  "html/template"
+  "os"
+  "io/ioutil"
+  "path/filepath"
 )
 
 type RequestParameters struct {
@@ -19,7 +23,7 @@ type InitiumRequest struct {
   template string
 }
 
-type RequestFunction func(*InitiumRequest)(bool)
+type RequestFunction func(*InitiumRequest)(interface{})
 
 type ControllerRoute struct {
   path string
@@ -40,6 +44,47 @@ type RoutingCollection struct {
 
 type InitiumRouter struct {
   routes []*RoutingCollection
+  tmpls  *template.Template
+}
+
+func (router* InitiumRouter) TemplateWalk(path string, file os.FileInfo, err error) error {
+  if !file.IsDir() {
+    var str, end = strings.Index(path, "/"), strings.Index(path, ".")
+    if str == -1 || end == -1 {
+      log.Println("[Warning] Can not extract namespace information for file:", path)
+      return nil
+    }
+    var name = strings.Replace(path[str+1:end], "/", ".", -1)
+
+    buf, err := ioutil.ReadFile(path)
+    if err != nil {
+      log.Println("Error while reading template:", err)
+      return err
+    }
+
+    var tmpl *template.Template
+    if router.tmpls == nil {
+      router.tmpls = template.New(name)
+      tmpl = router.tmpls
+    } else {
+      tmpl = router.tmpls.New(name)
+    }
+
+    _, err = tmpl.Parse(string(buf))
+    if err != nil {
+      log.Println("Error while parsing template", name, err)
+      return err
+    }
+    log.Println("Parsed", name, "from", path)
+  }
+  return nil
+}
+
+func (router* InitiumRouter) LoadTemplates(root string) {
+  err := filepath.Walk(root, router.TemplateWalk)
+  if err != nil {
+    log.Println("Error while template loading:", err)
+  }
 }
 
 func (router* InitiumRouter) RegisterController(controller InitiumController) {
@@ -53,7 +98,6 @@ func (router* InitiumRouter) RegisterController(controller InitiumController) {
         urlparts[idx] = "([^/]*?)"
       }
     }
-
     expr, err := regexp.Compile("^" + strings.Join(urlparts, "/") + "$")
     if err != nil {
       log.Println("[Warn] Can not compile regular expression for route:", v.path)
@@ -89,8 +133,9 @@ func (router* InitiumRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       }
 
       fnRequest := &InitiumRequest{req: r, resw: w, params: params}
-      if !route.fn(fnRequest) {
-        log.Println("Handling template result", fnRequest.template);
+      if result := route.fn(fnRequest); result != nil {
+        log.Println("Rendering", fnRequest.template);
+        router.tmpls.ExecuteTemplate(w, fnRequest.template, result)
       }
 
       return

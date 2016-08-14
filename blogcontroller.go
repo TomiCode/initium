@@ -12,13 +12,13 @@ func (controller* BlogController) routingRegister() []ControllerRoute {
   }
 }
 
-func (controller* BlogController) index(req *InitiumRequest) bool {
+func (controller* BlogController) index(req *InitiumRequest) interface{} {
   fmt.Println("Index sees params:", req.params)
-  req.template = "blog_index"
-  return false
+  req.template = "blog.index"
+  return []string{"abc", "bcd"}
 }
 
-func (controller* BlogController) addPost(req *InitiumRequest) bool {
+func (controller* BlogController) addPost(req *InitiumRequest) interface{} {
   fmt.Println("BlogController addPost.")
-  return true
+  return nil
 }
