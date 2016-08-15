@@ -6,12 +6,11 @@ import (
 )
 
 func main() {
-  log.Println("Starting..")
-  router := &InitiumRouter{}
+  log.Println("Initium startup.")
 
+  router := &InitiumRouter{}
   router.LoadTemplates("templates")
   router.RegisterController(&BlogController{})
-
 
   err := http.ListenAndServe(":1234", router)
   if err != nil {
