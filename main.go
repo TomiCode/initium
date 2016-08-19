@@ -11,6 +11,7 @@ func main() {
   application := &InitiumApp{}
   application.LoadTemplates("templates")
   application.RegisterController(&BlogController{})
+  application.RegisterController(&AuthController{})
 
   err := http.ListenAndServe(":1234", application)
   if err != nil {

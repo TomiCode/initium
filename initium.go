@@ -18,28 +18,36 @@ type RequestParameters struct {
 type InitiumRequest struct {
   request *http.Request
   writer http.ResponseWriter
-
   vars map[string]string
 }
 
-type RequestFunction func(*InitiumRequest)(interface{})
+type RequestFunction func(*InitiumRequest) (interface{})
 
 type ControllerRoute struct {
   uri string
+  name string
+  auth bool
   method string
   template string
   call RequestFunction
 }
 
 type InitiumController interface {
-  routingRegister() []ControllerRoute
+  // InitializeController(app ApplicationInterface)
+  RoutingRegister() []ControllerRoute
+}
+
+type ApplicationInterface interface {
+  RenderTemplate(*InitiumRequest, string, interface{}) error
 }
 
 type RoutingCollection struct {
-  method string
-  params []string
-  template string
+  auth bool
+  name string
   expr *regexp.Regexp
+  method string
+  template string
+  params []string
   fn RequestFunction
 }
 
@@ -88,8 +96,13 @@ func (app* InitiumApp) LoadTemplates(root string) {
   }
 }
 
+func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string) error {
+  // app.tmpls.ExecuteTemplate(request.writer, name
+  return nil
+}
+
 func (app* InitiumApp) RegisterController(controller InitiumController) {
-  for _, v := range controller.routingRegister() {
+  for _, v := range controller.RoutingRegister() {
     urlparts := strings.Split(v.uri, "/")
 
     var params []string
@@ -106,14 +119,16 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
     }
 
     app.routes = append(app.routes, &RoutingCollection{
-      method: v.method,
-      template: v.template,
       fn: v.call,
       expr: expr,
+      auth: v.auth,
+      name: v.name,
       params: params,
+      method: v.method,
+      template: v.template,
     })
 
-    log.Print("Registered route ", v.uri, " => ", reflect.TypeOf(controller))
+    log.Print("Registered route [", v.name, "] ", v.uri, " => ", reflect.TypeOf(controller))
   }
 }
 

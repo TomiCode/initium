@@ -3,9 +3,10 @@ package main
 import "fmt"
 
 type BlogController struct {
+  App ApplicationInterface
 }
 
-func (controller* BlogController) routingRegister() []ControllerRoute {
+func (controller* BlogController) RoutingRegister() []ControllerRoute {
   return []ControllerRoute{
     ControllerRoute{uri: "/", call: controller.index, template: "blog.index"},
     ControllerRoute{uri: "/add/{user}", call: controller.addPost},
