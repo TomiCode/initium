@@ -12,23 +12,31 @@ import (
   "path/filepath"
 )
 
+type InitiumError struct {
+  message string
+  code int
+}
+
+func CreateError(message string, code int) *InitiumError {
+  return &InitiumError{message: message, code: code}
+}
+
 type RequestParameters struct {
 }
 
 type InitiumRequest struct {
-  request *http.Request
-  writer http.ResponseWriter
+  Request *http.Request
+  Writer http.ResponseWriter
   vars map[string]string
 }
 
-type RequestFunction func(*InitiumRequest) (interface{})
+type RequestFunction func(*InitiumRequest) (*InitiumError)
 
 type ControllerRoute struct {
   uri string
   name string
   auth bool
   method string
-  template string
   call RequestFunction
 }
 
@@ -46,14 +54,15 @@ type RoutingCollection struct {
   name string
   expr *regexp.Regexp
   method string
-  template string
   params []string
-  fn RequestFunction
+  handler RequestFunction
 }
 
 type InitiumApp struct {
   routes []*RoutingCollection
-  tmpls  *template.Template
+  templates *template.Template
+
+  Debug bool
 }
 
 func (app* InitiumApp) TemplateWalk(path string, file os.FileInfo, err error) error {
@@ -71,20 +80,20 @@ func (app* InitiumApp) TemplateWalk(path string, file os.FileInfo, err error) er
       return err
     }
 
-    var tmpl *template.Template
-    if app.tmpls == nil {
-      app.tmpls = template.New(name)
-      tmpl = app.tmpls
+    var localTemplate *template.Template
+    if app.templates == nil {
+      localTemplate = template.New(name)
+      app.templates = localTemplate
     } else {
-      tmpl = app.tmpls.New(name)
+      localTemplate = app.templates.New(name)
     }
 
-    _, err = tmpl.Parse(string(buf))
+    _, err = localTemplate.Parse(string(buf))
     if err != nil {
-      log.Println("Error while parsing template", name, err)
+      log.Println("Error while loading template", name, err)
       return err
     }
-    log.Println("Parsed", name, "from", path)
+    log.Println("Loaded template", name)
   }
   return nil
 }
@@ -96,8 +105,9 @@ func (app* InitiumApp) LoadTemplates(root string) {
   }
 }
 
-func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string) error {
-  // app.tmpls.ExecuteTemplate(request.writer, name
+func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
+  log.Println("Requesting template:", name)
+  app.templates.ExecuteTemplate(request.Writer, name, data)
   return nil
 }
 
@@ -119,13 +129,12 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
     }
 
     app.routes = append(app.routes, &RoutingCollection{
-      fn: v.call,
       expr: expr,
       auth: v.auth,
       name: v.name,
       params: params,
       method: v.method,
-      template: v.template,
+      handler: v.call,
     })
 
     log.Print("Registered route [", v.name, "] ", v.uri, " => ", reflect.TypeOf(controller))
@@ -141,6 +150,7 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  /* {{{ Application handles routing tables */
   for _, route := range app.routes {
     if route.expr.MatchString(r.URL.Path) && ((route.method != "" && route.method == r.Method) || (route.method == "" && r.Method == "GET")) {
       var params = make(map[string]string)
@@ -159,13 +169,20 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         params[param] = val[0];
       }
 
-      fnRequest := &InitiumRequest{request: r, writer: w, vars: params}
-      if result := route.fn(fnRequest); result != nil && route.template != "" {
-        log.Println("Execute template", route.template);
-        app.tmpls.ExecuteTemplate(w, route.template, result)
+      var requestType = &InitiumRequest{Request: r, Writer: w, vars: params}
+      var err *InitiumError = nil
+
+      err = route.handler(requestType)
+      if err != nil {
+        if app.Debug {
+          app.RenderTemplate(requestType, "debug.error", err)
+        } else {
+          app.RenderTemplate(requestType, "error", err)
+        }
       }
-      return
+      break
     }
-  }
+  } /* Application routing end }}} */
+
 }
 

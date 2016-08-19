@@ -8,22 +8,23 @@ type BlogController struct {
 
 func (controller* BlogController) RoutingRegister() []ControllerRoute {
   return []ControllerRoute{
-    ControllerRoute{uri: "/", call: controller.index, template: "blog.index"},
+    ControllerRoute{uri: "/", call: controller.index},
     ControllerRoute{uri: "/add/{user}", call: controller.addPost},
   }
 }
 
-func (controller* BlogController) index(req *InitiumRequest) interface{} {
+func (controller* BlogController) index(req *InitiumRequest) (*InitiumError) {
   fmt.Println("Index sees params:", req.vars)
 
   // if req.Middleware.User.IsLogged {
     // bleh.
   // }
 
-  return []string{"abc", "bcd"}
+  controller.App.RenderTemplate(req, "blog.index", nil)
+  return nil
 }
 
-func (controller* BlogController) addPost(req *InitiumRequest) interface{} {
+func (controller* BlogController) addPost(req *InitiumRequest) (*InitiumError) {
   fmt.Println("BlogController addPost.")
   return nil
 }

@@ -8,12 +8,12 @@ import (
 func main() {
   log.Println("Initium startup.")
 
-  application := &InitiumApp{}
-  application.LoadTemplates("templates")
-  application.RegisterController(&BlogController{})
-  application.RegisterController(&AuthController{})
+  app := &InitiumApp{Debug: true}
+  app.LoadTemplates("templates")
+  app.RegisterController(&BlogController{app})
+  app.RegisterController(&AuthController{app})
 
-  err := http.ListenAndServe(":1234", application)
+  err := http.ListenAndServe(":1234", app)
   if err != nil {
     log.Fatal("ListenAndServe: ", err)
   }
