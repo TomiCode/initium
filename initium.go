@@ -21,6 +21,10 @@ func CreateError(message string, code int) *InitiumError {
   return &InitiumError{message: message, code: code}
 }
 
+func (err* InitiumError) Error() string {
+  return err.message
+}
+
 type RequestParameters struct {
 }
 
@@ -30,7 +34,7 @@ type InitiumRequest struct {
   vars map[string]string
 }
 
-type RequestFunction func(*InitiumRequest) (*InitiumError)
+type RequestFunction func(*InitiumRequest) error
 
 type ControllerRoute struct {
   uri string
@@ -107,7 +111,11 @@ func (app* InitiumApp) LoadTemplates(root string) {
 
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
   log.Println("Requesting template:", name)
-  app.templates.ExecuteTemplate(request.Writer, name, data)
+  var err = app.templates.ExecuteTemplate(request.Writer, name, data)
+  if err != nil {
+    log.Println("Error occurred while", name, "render:", err);
+    return CreateError("Template render error", 104)
+  }
   return nil
 }
 
@@ -136,7 +144,6 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
       method: v.method,
       handler: v.call,
     })
-
     log.Print("Registered route [", v.name, "] ", v.uri, " => ", reflect.TypeOf(controller))
   }
 }
@@ -168,17 +175,12 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       for param, val := range r.URL.Query() {
         params[param] = val[0];
       }
-
       var requestType = &InitiumRequest{Request: r, Writer: w, vars: params}
-      var err *InitiumError = nil
+      var err error
 
       err = route.handler(requestType)
       if err != nil {
-        if app.Debug {
-          app.RenderTemplate(requestType, "debug.error", err)
-        } else {
-          app.RenderTemplate(requestType, "error", err)
-        }
+        app.RenderTemplate(requestType, "error", err)
       }
       break
     }

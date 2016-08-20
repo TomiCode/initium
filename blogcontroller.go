@@ -13,18 +13,16 @@ func (controller* BlogController) RoutingRegister() []ControllerRoute {
   }
 }
 
-func (controller* BlogController) index(req *InitiumRequest) (*InitiumError) {
+func (controller* BlogController) index(req *InitiumRequest) error {
   fmt.Println("Index sees params:", req.vars)
 
   // if req.Middleware.User.IsLogged {
     // bleh.
   // }
-
-  controller.App.RenderTemplate(req, "blog.index", nil)
-  return nil
+  return controller.App.RenderTemplate(req, "blog.index", nil)
 }
 
-func (controller* BlogController) addPost(req *InitiumRequest) (*InitiumError) {
+func (controller* BlogController) addPost(req *InitiumRequest) error {
   fmt.Println("BlogController addPost.")
   return nil
 }

@@ -12,7 +12,6 @@ func (controller *AuthController) RoutingRegister() []ControllerRoute {
   }
 }
 
-func (controller *AuthController) getLogin(req *InitiumRequest) (*InitiumError) {
-
-  return nil
+func (controller *AuthController) getLogin(req *InitiumRequest) error {
+  return controller.App.RenderTemplate(req, "auth.login", nil)
 }
