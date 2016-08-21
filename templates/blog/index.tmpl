@@ -1,5 +1,27 @@
-{{template "header"}}
-<body>
-  <p>Hello World!{{.}}</p>
-</body>
+{{template "navbar"}}
+{{if .Debug}}
+  {{template "development" .}}
+{{end}}
+
+<div class="ui container">
+  <div class="ui one column grid">
+    {{range .Controller}}
+      <div class="column">
+        <div class="ui stacked segments">
+          <div class="ui segment">
+            <a class="title">{{.Title}}</a>
+            <p class="content">
+              {{.Content}}
+            </p>
+        </div>
+        <div class="ui grey segment small borderless menu offset">
+          <div class="item">
+            <i class="comments outline icon"></i>{{.View}}
+          </div>
+        </div>
+      </div>
+    {{end}}
+  </div>
+</div>
+
 {{template "footer"}}

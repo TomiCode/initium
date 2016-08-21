@@ -10,6 +10,8 @@ import (
   "os"
   "io/ioutil"
   "path/filepath"
+  "runtime"
+  "time"
 )
 
 type InitiumError struct {
@@ -25,13 +27,11 @@ func (err* InitiumError) Error() string {
   return err.message
 }
 
-type RequestParameters struct {
-}
-
 type InitiumRequest struct {
   Request *http.Request
   Writer http.ResponseWriter
   vars map[string]string
+  Session ApplicationSession
 }
 
 type RequestFunction func(*InitiumRequest) error
@@ -64,9 +64,37 @@ type RoutingCollection struct {
 
 type InitiumApp struct {
   routes []*RoutingCollection
+  sessions *SessionStorage
   templates *template.Template
 
   Debug bool
+  Stats *runtime.MemStats
+}
+
+type TemplateParameter struct {
+  SessionId string
+  Debug bool
+  Controller interface{}
+}
+
+func CreateInitium(debug bool) (*InitiumApp) {
+  var app = &InitiumApp{Debug: debug}
+  app.Initialize()
+
+  return app
+}
+
+func (app* InitiumApp) Initialize() {
+  app.sessions = CreateSessionStorage("_initium_session", 16)
+  app.Stats = &runtime.MemStats{}
+  go app.UpdateMemoryStats()
+}
+
+func (app* InitiumApp) UpdateMemoryStats() {
+  runtime.ReadMemStats(app.Stats)
+  log.Print("Update memory: Alloc: ", (app.Stats.Alloc / 1024), " KB, System: ", (app.Stats.Sys / 1024), " KB")
+
+  time.AfterFunc(time.Duration(time.Second * 16), app.UpdateMemoryStats)
 }
 
 func (app* InitiumApp) TemplateWalk(path string, file os.FileInfo, err error) error {
@@ -111,7 +139,8 @@ func (app* InitiumApp) LoadTemplates(root string) {
 
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
   log.Println("Requesting template:", name)
-  var err = app.templates.ExecuteTemplate(request.Writer, name, data)
+  var templateParam = &TemplateParameter{SessionId: request.Session.GetSessionId(), Debug: app.Debug, Controller: data}
+  var err = app.templates.ExecuteTemplate(request.Writer, name, templateParam)
   if err != nil {
     log.Println("Error occurred while", name, "render:", err);
     return CreateError("Template render error", 104)
@@ -119,6 +148,7 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
   return nil
 }
 
+/* {{{ RegisterController */
 func (app* InitiumApp) RegisterController(controller InitiumController) {
   for _, v := range controller.RoutingRegister() {
     urlparts := strings.Split(v.uri, "/")
@@ -146,18 +176,17 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
     })
     log.Print("Registered route [", v.name, "] ", v.uri, " => ", reflect.TypeOf(controller))
   }
-}
+} // }}}
 
+/* {{{ ServeHTTP */
 func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-  log.Println("Handling", r.Method, "path", r.URL.Path)
-
   if strings.Contains(r.URL.Path, ".") {
-    log.Println("File handle for path:", r.URL.Path)
+    log.Print("File request ", r.Method, ": ", r.URL.Path)
     http.ServeFile(w, r, "public" + r.URL.Path)
     return
   }
+  log.Print("Router request ", r.Method, ": ", r.URL.Path)
 
-  /* {{{ Application handles routing tables */
   for _, route := range app.routes {
     if route.expr.MatchString(r.URL.Path) && ((route.method != "" && route.method == r.Method) || (route.method == "" && r.Method == "GET")) {
       var params = make(map[string]string)
@@ -175,8 +204,15 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       for param, val := range r.URL.Query() {
         params[param] = val[0];
       }
+
       var requestType = &InitiumRequest{Request: r, Writer: w, vars: params}
       var err error
+
+      err = app.sessions.StartSession(requestType)
+      if err != nil {
+        log.Println("Session broken, reason:", err.Error())
+        break;
+      }
 
       err = route.handler(requestType)
       if err != nil {
@@ -184,7 +220,6 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       }
       break
     }
-  } /* Application routing end }}} */
+  }
 
-}
-
+} // }}}

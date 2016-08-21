@@ -6,6 +6,14 @@ type BlogController struct {
   App ApplicationInterface
 }
 
+type BlogPost struct {
+  Title string
+  Content string
+
+  View int
+  Like int
+}
+
 func (controller* BlogController) RoutingRegister() []ControllerRoute {
   return []ControllerRoute{
     ControllerRoute{uri: "/", call: controller.index},
@@ -16,10 +24,11 @@ func (controller* BlogController) RoutingRegister() []ControllerRoute {
 func (controller* BlogController) index(req *InitiumRequest) error {
   fmt.Println("Index sees params:", req.vars)
 
-  // if req.Middleware.User.IsLogged {
-    // bleh.
-  // }
-  return controller.App.RenderTemplate(req, "blog.index", nil)
+  var test_posts = []BlogPost{
+    BlogPost{Title: "First blog entry 01", Content: "Lorem ipsum.", View: 0, Like: 0},
+  }
+
+  return controller.App.RenderTemplate(req, "blog.index", test_posts)
 }
 
 func (controller* BlogController) addPost(req *InitiumRequest) error {
