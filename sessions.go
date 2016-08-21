@@ -80,17 +80,21 @@ func (storage *SessionStorage) StartSession(req* InitiumRequest) error {
   var sessionId string = ""
   if cookie, err := req.Request.Cookie(storage.cookie); err == nil {
     sessionId = cookie.Value
-  } else {
-    sessionId = storage.GenerateSessionId()
-    cookie := http.Cookie{Name: storage.cookie, Value: sessionId, Path: "/", HttpOnly: true, MaxAge: 44000}
-    http.SetCookie(req.Writer, &cookie)
   }
 
-  if oldSession, valid := storage.sessions[sessionId]; valid {
-    req.Session = oldSession
-  } else {
-    req.Session = storage.NewSession(sessionId)
+  if sessionId != "" {
+    if oldSession, valid := storage.sessions[sessionId]; valid {
+      req.Session = oldSession
+      log.Println("Found valid session", sessionId)
+      return nil
+    }
   }
-  log.Println("User session:", sessionId)
+  sessionId = storage.GenerateSessionId()
+  cookie := http.Cookie{Name: storage.cookie, Value: sessionId, Path: "/", HttpOnly: true}
+
+  req.Session = storage.NewSession(sessionId)
+  http.SetCookie(req.Writer, &cookie)
+
+  log.Println("New session:", sessionId)
   return nil
 }

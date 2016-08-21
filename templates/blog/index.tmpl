@@ -1,11 +1,10 @@
 {{template "navbar"}}
-{{if .Debug}}
-  {{template "development" .}}
-{{end}}
-
 <div class="ui container">
+  {{if .Debug}}
+    {{template "development" .}}
+  {{end}}
   <div class="ui one column grid">
-    {{range .Controller}}
+    {{range .Self}}
       <div class="column">
         <div class="ui stacked segments">
           <div class="ui segment">
@@ -23,5 +22,4 @@
     {{end}}
   </div>
 </div>
-
 {{template "footer"}}

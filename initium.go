@@ -1,18 +1,18 @@
 package main
 
-import (
-  "regexp"
-  "strings"
-  "log"
-  "net/http"
-  "reflect"
-  "html/template"
-  "os"
-  "io/ioutil"
-  "path/filepath"
-  "runtime"
-  "time"
-)
+import "regexp"
+import "strings"
+import "log"
+import "net/http"
+import "reflect"
+import "html/template"
+import "os"
+import "io/ioutil"
+import "path/filepath"
+import "runtime"
+import "time"
+import "database/sql"
+import _ "github.com/go-sql-driver/mysql"
 
 type InitiumError struct {
   message string
@@ -28,10 +28,10 @@ func (err* InitiumError) Error() string {
 }
 
 type InitiumRequest struct {
+  Session ApplicationSession
   Request *http.Request
   Writer http.ResponseWriter
   vars map[string]string
-  Session ApplicationSession
 }
 
 type RequestFunction func(*InitiumRequest) error
@@ -66,6 +66,7 @@ type InitiumApp struct {
   routes []*RoutingCollection
   sessions *SessionStorage
   templates *template.Template
+  database *sql.DB
 
   Debug bool
   Stats *runtime.MemStats
@@ -74,20 +75,52 @@ type InitiumApp struct {
 type TemplateParameter struct {
   SessionId string
   Debug bool
-  Controller interface{}
+  Self interface{}
 }
 
 func CreateInitium(debug bool) (*InitiumApp) {
   var app = &InitiumApp{Debug: debug}
-  app.Initialize()
+  return app.Initialize()
+}
+
+func (app* InitiumApp) Initialize() (*InitiumApp) {
+  app.sessions = CreateSessionStorage("_initium_session", 16)
+  app.Stats = &runtime.MemStats{}
+  go app.UpdateMemoryStats()
 
   return app
 }
 
-func (app* InitiumApp) Initialize() {
-  app.sessions = CreateSessionStorage("_initium_session", 16)
-  app.Stats = &runtime.MemStats{}
-  go app.UpdateMemoryStats()
+func (app* InitiumApp) OpenDatabase(connection string) {
+  var err error
+  app.database, err = sql.Open("mysql", connection)
+
+  if err != nil {
+    log.Println("Error while opening database connection:", err)
+  }
+}
+
+func (app* InitiumApp) GetDatabase() (*sql.DB) {
+  if app.database == nil {
+    log.Println("Error: Accessing uninitialized database connection.")
+    return nil;
+  }
+
+  var err = app.database.Ping()
+  if err != nil {
+    log.Println("Error while database connection test:", err)
+    return nil
+  }
+  return app.database
+}
+
+func (app* InitiumApp) CloseDatabase() {
+  if app.database != nil {
+    var err = app.database.Close()
+    if err != nil {
+      log.Println("Error while closing database connection:", err)
+    }
+  }
 }
 
 func (app* InitiumApp) UpdateMemoryStats() {
@@ -139,7 +172,7 @@ func (app* InitiumApp) LoadTemplates(root string) {
 
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
   log.Println("Requesting template:", name)
-  var templateParam = &TemplateParameter{SessionId: request.Session.GetSessionId(), Debug: app.Debug, Controller: data}
+  var templateParam = &TemplateParameter{SessionId: request.Session.GetSessionId(), Debug: app.Debug, Self: data}
   var err = app.templates.ExecuteTemplate(request.Writer, name, templateParam)
   if err != nil {
     log.Println("Error occurred while", name, "render:", err);
