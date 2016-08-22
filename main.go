@@ -9,11 +9,14 @@ func main() {
   log.Println("Initium startup.")
 
   app := CreateInitium(true)
+  app.OpenDatabase("initium:123123@/initium_db")
+  defer app.CloseDatabase()
+
   app.LoadTemplates("templates")
   app.RegisterController(&BlogController{app})
   app.RegisterController(&AuthController{app})
 
-  err := http.ListenAndServe("192.168.1.102:1234", app)
+  err := http.ListenAndServe("localhost:1337", app)
   if err != nil {
     log.Fatal("ListenAndServe: ", err)
   }

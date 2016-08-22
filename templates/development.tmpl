@@ -6,3 +6,11 @@
   <div class="header">Session storage</div>
   Current session ID: <code>{{.SessionId}}</code>
 </div>
+<div class="ui info message">
+  <div class="header">Authentication service</div>
+  {{if .Authorized}}
+    This session is authorized <code>{{.AuthToken}}</code>
+  {{else}}
+    This session is not authorized.
+  {{end}}
+</div>

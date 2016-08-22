@@ -1,0 +1,26 @@
+{{template "navbar"}}
+<div class="ui container">
+  {{if .Debug}}
+    {{template "development" .}}
+  {{end}}
+  <div class="ui segment">
+    <form class="ui form" method="POST">
+      <div class="field">
+        <label>Email</label>
+        <input name="email" placeholder="Email address" type="text">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input name="passwd" placeholder="Password" type="password">
+      </div>
+      <div class="field">
+        <div class="ui checkbox">
+          <input class="hidden" tabindex="0" type="checkbox">
+          <label>Nothing</label>
+        </div>
+      </div>
+      <button class="ui button" type="submit">Login</button>
+    </form>
+  </div>
+</div>
+{{template "footer"}}

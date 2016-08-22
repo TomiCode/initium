@@ -35,7 +35,8 @@ func (session *InitiumSession) GetValue(key string) interface{} {
 }
 
 func (session *InitiumSession) IsValid(key string) bool {
-  _, valid := session.values[key];
+  value, valid := session.values[key];
+  log.Println("Accessing session:", key, "=>", value)
   return valid
 }
 

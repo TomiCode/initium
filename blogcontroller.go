@@ -25,7 +25,8 @@ func (controller* BlogController) index(req *InitiumRequest) error {
   fmt.Println("Index sees params:", req.vars)
 
   var test_posts = []BlogPost{
-    BlogPost{Title: "First blog entry 01", Content: "Lorem ipsum.", View: 0, Like: 0},
+    BlogPost{Title: "First blog entry 01", Content: "Lorem ipsum.", View: 1337, Like: 0},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
   }
 
   return controller.App.RenderTemplate(req, "blog.index", test_posts)

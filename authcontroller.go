@@ -1,6 +1,6 @@
 package main
 
-import "fmt"
+import "log"
 
 type AuthController struct {
   App ApplicationInterface
@@ -18,6 +18,15 @@ func (controller *AuthController) getLogin(req *InitiumRequest) error {
 }
 
 func (controller *AuthController) postLogin(req *InitiumRequest) error {
-  fmt.Printf("postLogin: %+v\n", req)
+  var err = req.Request.ParseForm()
+  if err != nil {
+    log.Println("Can not parse form:", err)
+    return nil
+  }
+
+  var user, pass = req.Request.Form.Get("email"), req.Request.Form.Get("passwd")
+  log.Println("Authenticate user:", user, pass)
+  controller.App.AuthenticateUser(req, user, pass)
+
   return nil
 }

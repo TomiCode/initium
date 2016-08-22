@@ -31,6 +31,7 @@ type InitiumRequest struct {
   Session ApplicationSession
   Request *http.Request
   Writer http.ResponseWriter
+  User *InitiumUser
   vars map[string]string
 }
 
@@ -50,7 +51,9 @@ type InitiumController interface {
 }
 
 type ApplicationInterface interface {
+  AuthenticateUser(req* InitiumRequest, user, pass string) bool
   RenderTemplate(*InitiumRequest, string, interface{}) error
+  GetDatabase() (*sql.DB)
 }
 
 type RoutingCollection struct {
@@ -73,6 +76,8 @@ type InitiumApp struct {
 }
 
 type TemplateParameter struct {
+  Authorized bool
+  AuthToken string
   SessionId string
   Debug bool
   Self interface{}
@@ -93,6 +98,7 @@ func (app* InitiumApp) Initialize() (*InitiumApp) {
 
 func (app* InitiumApp) OpenDatabase(connection string) {
   var err error
+  log.Println("Opening database connection.")
   app.database, err = sql.Open("mysql", connection)
 
   if err != nil {
@@ -101,6 +107,7 @@ func (app* InitiumApp) OpenDatabase(connection string) {
 }
 
 func (app* InitiumApp) GetDatabase() (*sql.DB) {
+  log.Println("Accessing database")
   if app.database == nil {
     log.Println("Error: Accessing uninitialized database connection.")
     return nil;
@@ -116,6 +123,7 @@ func (app* InitiumApp) GetDatabase() (*sql.DB) {
 
 func (app* InitiumApp) CloseDatabase() {
   if app.database != nil {
+    log.Println("Closing database connection.")
     var err = app.database.Close()
     if err != nil {
       log.Println("Error while closing database connection:", err)
@@ -172,7 +180,17 @@ func (app* InitiumApp) LoadTemplates(root string) {
 
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
   log.Println("Requesting template:", name)
-  var templateParam = &TemplateParameter{SessionId: request.Session.GetSessionId(), Debug: app.Debug, Self: data}
+  var templateParam = &TemplateParameter{
+    Authorized: request.IsAuthorized(),
+    SessionId: request.Session.GetSessionId(),
+    Debug: app.Debug,
+    Self: data,
+  }
+
+  if request.IsAuthorized() {
+    templateParam.AuthToken = request.User.AuthToken
+  }
+
   var err = app.templates.ExecuteTemplate(request.Writer, name, templateParam)
   if err != nil {
     log.Println("Error occurred while", name, "render:", err);
@@ -239,12 +257,18 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       }
 
       var requestType = &InitiumRequest{Request: r, Writer: w, vars: params}
-      var err error
+      var err error = nil
 
       err = app.sessions.StartSession(requestType)
       if err != nil {
-        log.Println("Session broken, reason:", err.Error())
-        break;
+        log.Println("Session broken, reason:", err)
+        break
+      }
+
+      err = app.StartAuthorization(requestType)
+      if err != nil {
+        log.Println("Authorization failed, reason:", err)
+        break
       }
 
       err = route.handler(requestType)
