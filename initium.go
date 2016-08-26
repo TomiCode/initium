@@ -7,6 +7,8 @@ import "net/http"
 import "reflect"
 import "html/template"
 import "os"
+import "fmt"
+import "math/rand"
 import "io/ioutil"
 import "path/filepath"
 import "runtime"
@@ -51,7 +53,7 @@ type InitiumController interface {
 }
 
 type ApplicationInterface interface {
-  AuthenticateUser(req* InitiumRequest, user, pass string) bool
+  AuthenticateLogin (user, pass string, session ApplicationSession) error
   RenderTemplate(*InitiumRequest, string, interface{}) error
   GetDatabase() (*sql.DB)
 }
@@ -72,6 +74,8 @@ type InitiumApp struct {
   database *sql.DB
 
   Debug bool
+  SessionSize int
+  SessionCookie string
   Stats *runtime.MemStats
 }
 
@@ -83,17 +87,25 @@ type TemplateParameter struct {
   Self interface{}
 }
 
-func CreateInitium(debug bool) (*InitiumApp) {
-  var app = &InitiumApp{Debug: debug}
+func CreateInitium(debug bool, cookie string, sessionSize int) (*InitiumApp) {
+  var app = &InitiumApp{Debug: debug, SessionCookie: cookie, SessionSize: sessionSize}
   return app.Initialize()
 }
 
 func (app* InitiumApp) Initialize() (*InitiumApp) {
-  app.sessions = CreateSessionStorage("_initium_session", 16)
+  app.CreateSessionStorage()
   app.Stats = &runtime.MemStats{}
   go app.UpdateMemoryStats()
 
   return app
+}
+
+func (app* InitiumApp) GenerateUUID(size int) string {
+  rand.Seed(time.Now().UnixNano())
+  var result_id = make([]byte, size)
+  rand.Read(result_id)
+
+  return fmt.Sprintf("%x", result_id)
 }
 
 func (app* InitiumApp) OpenDatabase(connection string) {
@@ -178,10 +190,13 @@ func (app* InitiumApp) LoadTemplates(root string) {
   }
 }
 
+
+/* {{{ RenderTemplate */
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
   log.Println("Requesting template:", name)
   var templateParam = &TemplateParameter{
     Authorized: request.IsAuthorized(),
+    User: request.User,
     SessionId: request.Session.GetSessionId(),
     Debug: app.Debug,
     Self: data,
@@ -197,7 +212,7 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
     return CreateError("Template render error", 104)
   }
   return nil
-}
+} // }}}
 
 /* {{{ RegisterController */
 func (app* InitiumApp) RegisterController(controller InitiumController) {
@@ -231,7 +246,7 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
 
 /* {{{ ServeHTTP */
 func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-  if strings.Contains(r.URL.Path, ".") {
+  if r.Method == "GET" && strings.Contains(r.URL.Path, ".") {
     log.Print("File request ", r.Method, ": ", r.URL.Path)
     http.ServeFile(w, r, "public" + r.URL.Path)
     return
@@ -240,7 +255,7 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
   for _, route := range app.routes {
     if route.expr.MatchString(r.URL.Path) && ((route.method != "" && route.method == r.Method) || (route.method == "" && r.Method == "GET")) {
-      var params = make(map[string]string)
+      var params = make(map[string]string, 0)
       var uriScheme = route.expr.FindStringSubmatch(r.URL.Path)
       if uriScheme[0] != r.URL.Path {
         continue;
@@ -265,7 +280,7 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         break
       }
 
-      err = app.StartAuthorization(requestType)
+      err = app.sessions.SessionAuthenticate(requestType)
       if err != nil {
         log.Println("Authorization failed, reason:", err)
         break
@@ -279,4 +294,34 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
   }
 
+} // }}}
+
+/* {{{ AuthenticateLogin */
+func (app* InitiumApp) AuthenticateLogin (user, pass string, session ApplicationSession) error {
+  log.Println("Starting Authenticate login")
+
+  var db *sql.DB = app.GetDatabase()
+  if db == nil {
+    return CreateError("Can not connect to database.", 201)
+  }
+
+  var user_row = db.QueryRow("SELECT id FROM users WHERE email=? AND password=?", user, pass)
+  var user_id int
+
+  var err = user_row.Scan(&user_id)
+  if err == sql.ErrNoRows {
+    return CreateError("Username or password incorrect.", 301)
+  } else if err != nil {
+    return err
+  }
+
+  var auth_string string = app.GenerateUUID(6)
+
+  _, err = db.Exec("UPDATE users SET auth_token=? WHERE id=?", auth_string, user_id)
+  if err != nil {
+    return err
+  }
+
+  session.SetValue(SessionAuthKey, auth_string)
+  return nil
 } // }}}

@@ -1,18 +1,24 @@
 package main
 
 import (
-  "fmt"
   "log"
-  "math/rand"
-  "time"
   "net/http"
+  "database/sql"
 )
+
+const SessionAuthKey = "user_auth"
 
 type InitiumSession struct {
   /* Debug only field */
   sid string
-
   values map[string]interface{}
+}
+
+type InitiumUser struct {
+  Name string
+  Token int16
+  Email string
+  AuthToken string
 }
 
 type ApplicationSession interface {
@@ -20,6 +26,14 @@ type ApplicationSession interface {
   SetValue(string, interface{})
   GetValue(string) interface{}
   IsValid(string) bool
+}
+
+/* A bit bullshit.. */
+func (request* InitiumRequest) IsAuthorized() bool {
+  if request.User != nil {
+    return true
+  }
+  return false
 }
 
 /* Debug function - this should be removed after the testing stages. */
@@ -45,57 +59,68 @@ func (session *InitiumSession) SetValue(key string, data interface{}) {
 }
 
 type SessionStorage struct {
+  app *InitiumApp
   sessions map[string]*InitiumSession
-  cookie string
-  size int
 }
 
-func CreateSessionStorage(name string, size int) (*SessionStorage) {
-  var storage = &SessionStorage{cookie: name, size: size}
-  return storage.InitializeStorage()
+func (app *InitiumApp) CreateSessionStorage() {
+  log.Println("Creating session storage.")
+  app.sessions = &SessionStorage{app: app, sessions: make(map[string]*InitiumSession)}
 }
 
-func (storage *SessionStorage) InitializeStorage() (*SessionStorage) {
-  storage.sessions = make(map[string]*InitiumSession, 0)
-
-  log.Println("SessionStorage initialized.")
-  return storage
-}
-
-func (storage* SessionStorage) NewSession(sessionId string) (*InitiumSession) {
-  var newSession = &InitiumSession{sid: sessionId, values: make(map[string]interface{})}
-  storage.sessions[sessionId] = newSession
+func (storage* SessionStorage) NewSession(sessionToken string) (*InitiumSession) {
+  var newSession = &InitiumSession{sid: sessionToken, values: make(map[string]interface{})}
+  storage.sessions[sessionToken] = newSession
 
   return newSession
 }
 
-func (storage *SessionStorage) GenerateSessionId() string {
-  rand.Seed(time.Now().UnixNano())
-
-  var result_id = make([]byte, storage.size)
-  rand.Read(result_id)
-  return fmt.Sprintf("%x", result_id)
-}
-
-func (storage *SessionStorage) StartSession(req* InitiumRequest) error {
-  var sessionId string = ""
-  if cookie, err := req.Request.Cookie(storage.cookie); err == nil {
-    sessionId = cookie.Value
+func (storage* SessionStorage) StartSession(request* InitiumRequest) error {
+  var sessionToken string = ""
+  if cookie, err := request.Request.Cookie(storage.app.SessionCookie); err == nil {
+    sessionToken = cookie.Value
   }
 
-  if sessionId != "" {
-    if oldSession, valid := storage.sessions[sessionId]; valid {
-      req.Session = oldSession
-      log.Println("Found valid session", sessionId)
+  if sessionToken != "" {
+    if oldSession, valid := storage.sessions[sessionToken]; valid {
+      request.Session = oldSession
+      log.Println("Found valid session", sessionToken)
       return nil
     }
   }
-  sessionId = storage.GenerateSessionId()
-  cookie := http.Cookie{Name: storage.cookie, Value: sessionId, Path: "/", HttpOnly: true}
+  sessionToken = storage.app.GenerateUUID(storage.app.SessionSize)
+  cookie := http.Cookie{Name: storage.app.SessionCookie, Value: sessionToken, Path: "/", HttpOnly: true}
 
-  req.Session = storage.NewSession(sessionId)
-  http.SetCookie(req.Writer, &cookie)
+  request.Session = storage.NewSession(sessionToken)
+  http.SetCookie(request.Writer, &cookie)
 
-  log.Println("New session:", sessionId)
+  log.Println("New session:", sessionToken)
+  return nil
+}
+
+func (storage* SessionStorage) SessionAuthenticate(request* InitiumRequest) error {
+  var db *sql.DB = storage.app.GetDatabase()
+
+  log.Println("Started session authentication.")
+  if db == nil {
+    return CreateError("Database connection not valid", 901)
+  }
+
+  if !request.Session.IsValid(SessionAuthKey) {
+    return nil
+  }
+  var auth_token string = request.Session.GetValue(SessionAuthKey).(string)
+  var user_row = db.QueryRow("SELECT login, token, email FROM users WHERE auth_token=?", auth_token)
+  log.Println("User auth session token:", auth_token)
+
+  var sessionUser *InitiumUser = &InitiumUser{AuthToken: auth_token}
+  var err = user_row.Scan(&sessionUser.Name, &sessionUser.Token, &sessionUser.Email)
+  if err == sql.ErrNoRows {
+    return nil
+  } else if err != nil {
+    return err
+  }
+
+  request.User = sessionUser
   return nil
 }
