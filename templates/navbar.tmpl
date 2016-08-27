@@ -1,13 +1,43 @@
 {{template "header"}}
 <!-- Menubar -->
-<div class="ui secondary inverted blue menu global">
+
+<div class="ui container">
+  <h1>Initium</h1>
+</div>
+
+<div class="ui secondary general menu">
   <div class="ui container">
-    <div class="header item">#InitiumWeb</div>
+    <div class="item">
+      <img src="test.png" />
+    </div>
+    <div class="ui pointing dropdown item">
+      <i class="cube icon"></i> Active Module
+      <i class="dropdown icon"></i>
+      <div class="menu">
+        <a class="item">Index</a>
+        <div class="divider"></div>
+        <div class="header">Categories</div>
+        <a class="item">Development</a>
+        <a class="item">Personal</a>
+        <div class="divider"></div>
+        <div class="header">Moderation</div>
+        <a class="item">New post</a>
+        <a class="item">Manage</a>
+      </div>
+    </div>
     <a href="/" class="item">
-      <i class="newspaper icon"></i> Blog
+      <i class="cube icon"></i> Last Module
     </a>
-    <a href="/auth" class="item">
-      <i class="user icon"></i> Login
+    <a href="/" class="item">
+      Modules <i class="dropdown icon"></i>
     </a>
+    
+    <div class="right menu">
+      <a href="/auth" class="item">
+        <img class="ui avatar image" src="test.png" />
+        <span>Username</span>
+        <i class="dropdown icon"></i>
+      </a>
+    </div>
   </div>
 </div>

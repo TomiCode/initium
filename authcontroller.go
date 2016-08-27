@@ -6,10 +6,14 @@ type AuthController struct {
   App ApplicationInterface
 }
 
-func (controller *AuthController) RoutingRegister() []ControllerRoute {
-  return []ControllerRoute{
-    ControllerRoute{uri: "/auth", call: controller.getLogin, name: "auth.login"},
-    ControllerRoute{uri: "/auth", method: "POST", call: controller.postLogin, name: "auth.login.post"},
+func (controller* AuthController) PermissionNode() string {
+  return "auth_ctrl"
+}
+
+func (controller* AuthController) RoutingRegister() []*ControllerRoute {
+  return []*ControllerRoute{
+    &ControllerRoute{uri: "/auth", call: controller.getLogin, alias: "auth.login"},
+    &ControllerRoute{uri: "/auth", method: "POST", call: controller.postLogin, alias: "auth.login.post"},
   }
 }
 

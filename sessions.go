@@ -124,3 +124,21 @@ func (storage* SessionStorage) SessionAuthenticate(request* InitiumRequest) erro
   request.User = sessionUser
   return nil
 }
+
+func (storage* SessionStorage) SessionPermission(request* InitiumRequest) error {
+  var db *sql.DB = storage.app.GetDatabase()
+  if db == nil {
+    return CreateError("Database connection not exists", 901)
+  }
+  var auth_token = request.Session.GetValue(SessionAuthKey).(string)
+  var err = db.QueryRow("SELECT permissions.value FROM users JOIN permissions ON users.id = permissions.user_id WHERE users.auth_token=? AND permissions.controller=?", auth_token, request.Permission.Node).Scan(&request.Permission.Value)
+  if err == sql.ErrNoRows {
+    log.Println("No valid permission for node:", request.Permission.Node)
+    request.Permission.Value = 0
+    return nil
+  } else if err != nil {
+    return err
+  }
+  log.Println("Found user permission node:", request.Permission.Node, request.Permission.Value)
+  return nil
+}

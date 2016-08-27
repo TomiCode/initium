@@ -9,15 +9,18 @@ type BlogController struct {
 type BlogPost struct {
   Title string
   Content string
-
   View int
   Like int
 }
 
-func (controller* BlogController) RoutingRegister() []ControllerRoute {
-  return []ControllerRoute{
-    ControllerRoute{uri: "/", call: controller.index},
-    ControllerRoute{uri: "/add/{user}", call: controller.addPost},
+func (controller* BlogController) PermissionNode() string {
+  return "blog_ctrl"
+}
+
+func (controller* BlogController) RoutingRegister() []*ControllerRoute {
+  return []*ControllerRoute{
+    &ControllerRoute{uri: "/", call: controller.index, alias: "blog.index", access: InitiumPermission_None},
+    &ControllerRoute{uri: "/add/", call: controller.addPost, alias: "blog.add", access: InitiumPermission_None},
   }
 }
 
@@ -26,6 +29,16 @@ func (controller* BlogController) index(req *InitiumRequest) error {
 
   var test_posts = []BlogPost{
     BlogPost{Title: "First blog entry 01", Content: "Lorem ipsum.", View: 1337, Like: 0},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
+    BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
     BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
   }
 

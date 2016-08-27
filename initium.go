@@ -4,7 +4,7 @@ import "regexp"
 import "strings"
 import "log"
 import "net/http"
-import "reflect"
+// import "reflect"
 import "html/template"
 import "os"
 import "fmt"
@@ -15,6 +15,17 @@ import "runtime"
 import "time"
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
+
+/* Initium permissions. Those values are valid in header entries as of user permissions. */
+/* With the difference, that in the header entry None, will be shown to everyone. */
+const (
+  InitiumPermission_None        = 0
+  InitiumPermission_Guest       = 1
+  InitiumPermission_Basic       = 2
+  InitiumPermission_Moderation  = 3
+  InitiumPermission_Admin       = 4
+  InitiumPermission_Owner       = 5
+)
 
 type InitiumError struct {
   message string
@@ -30,10 +41,11 @@ func (err* InitiumError) Error() string {
 }
 
 type InitiumRequest struct {
+  Permission* ControllerPermission
   Session ApplicationSession
-  Request *http.Request
+  Request* http.Request
   Writer http.ResponseWriter
-  User *InitiumUser
+  User* InitiumUser
   vars map[string]string
 }
 
@@ -41,15 +53,15 @@ type RequestFunction func(*InitiumRequest) error
 
 type ControllerRoute struct {
   uri string
-  name string
-  auth bool
+  alias string
   method string
+  access uint8
   call RequestFunction
 }
 
 type InitiumController interface {
-  // InitializeController(app ApplicationInterface)
-  RoutingRegister() []ControllerRoute
+  PermissionNode() string
+  RoutingRegister() []*ControllerRoute
 }
 
 type ApplicationInterface interface {
@@ -59,16 +71,17 @@ type ApplicationInterface interface {
 }
 
 type RoutingCollection struct {
-  auth bool
   name string
   expr *regexp.Regexp
   method string
   params []string
   handler RequestFunction
+  permnode string
+  permission uint8
 }
 
 type InitiumApp struct {
-  routes []*RoutingCollection
+  routes map[string]*RoutingCollection
   sessions *SessionStorage
   templates *template.Template
   database *sql.DB
@@ -79,7 +92,13 @@ type InitiumApp struct {
   Stats *runtime.MemStats
 }
 
+type ControllerPermission struct {
+  Node string
+  Value uint8
+}
+
 type TemplateParameter struct {
+  User* InitiumUser
   Authorized bool
   AuthToken string
   SessionId string
@@ -93,6 +112,7 @@ func CreateInitium(debug bool, cookie string, sessionSize int) (*InitiumApp) {
 }
 
 func (app* InitiumApp) Initialize() (*InitiumApp) {
+  app.routes = make(map[string]*RoutingCollection, 0)
   app.CreateSessionStorage()
   app.Stats = &runtime.MemStats{}
   go app.UpdateMemoryStats()
@@ -190,7 +210,6 @@ func (app* InitiumApp) LoadTemplates(root string) {
   }
 }
 
-
 /* {{{ RenderTemplate */
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
   log.Println("Requesting template:", name)
@@ -216,10 +235,12 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
 
 /* {{{ RegisterController */
 func (app* InitiumApp) RegisterController(controller InitiumController) {
-  for _, v := range controller.RoutingRegister() {
-    urlparts := strings.Split(v.uri, "/")
+  var node = controller.PermissionNode()
 
+  for _, v := range controller.RoutingRegister() {
+    var urlparts []string = strings.Split(v.uri, "/")
     var params []string
+
     for idx, part := range urlparts {
       if strings.HasPrefix(part, "{") {
         params = append(params, part[1:len(part) - 1])
@@ -232,16 +253,26 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
       continue;
     }
 
-    app.routes = append(app.routes, &RoutingCollection{
+    // app.routes = append(app.routes, 
+    newRoute := &RoutingCollection{
       expr: expr,
-      auth: v.auth,
-      name: v.name,
       params: params,
       method: v.method,
       handler: v.call,
-    })
-    log.Print("Registered route [", v.name, "] ", v.uri, " => ", reflect.TypeOf(controller))
+      permnode: node,
+      permission: v.access,
+    }
+
+    if v.alias != "" {
+      app.routes[v.alias] = newRoute
+      log.Println("Registered named route:", v.method, v.uri, "as", v.alias)
+    } else {
+      var unamed string = app.GenerateUUID(4)
+      app.routes[unamed] = newRoute
+      log.Println("Registered unnamed route:", v.method, v.uri, "as", unamed)
+    }
   }
+  log.Println("Routing compiled for Controller:", node)
 } // }}}
 
 /* {{{ ServeHTTP */
@@ -286,6 +317,24 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         break
       }
 
+      if requestType.IsAuthorized() && route.permnode != "" {
+        requestType.Permission = &ControllerPermission{Node: route.permnode}
+        err = app.sessions.SessionPermission(requestType)
+        if err != nil {
+          log.Println("Permission request failed:", err)
+        }
+
+        if route.permission > requestType.Permission.Value {
+          log.Println("User", requestType.Session.GetSessionId(), "has no permissions to view route:", route.name)
+          app.RenderTemplate(requestType, "permissions", nil)
+          break
+        }
+      } else if !requestType.IsAuthorized() && route.permission > 0 {
+        log.Println("Guest has no permissions to view route:", route.name)
+        app.RenderTemplate(requestType, "permissions", nil)
+        break
+      }
+
       err = route.handler(requestType)
       if err != nil {
         app.RenderTemplate(requestType, "error", err)
@@ -315,13 +364,23 @@ func (app* InitiumApp) AuthenticateLogin (user, pass string, session Application
     return err
   }
 
-  var auth_string string = app.GenerateUUID(6)
+  for {
+    var auth_string string = app.GenerateUUID(6)
 
-  _, err = db.Exec("UPDATE users SET auth_token=? WHERE id=?", auth_string, user_id)
-  if err != nil {
-    return err
+    err = db.QueryRow("SELECT id FROM users WHERE auth_token=?", auth_string).Scan(&user_id)
+    if err == nil {
+      continue
+    } else if err != sql.ErrNoRows {
+      log.Println("Error occured while database query:", err)
+      break
+    }
+
+    _, err = db.Exec("UPDATE users SET auth_token=? WHERE id=?", auth_string, user_id)
+    if err != nil {
+      return err
+    }
+    session.SetValue(SessionAuthKey, auth_string)
+    break
   }
-
-  session.SetValue(SessionAuthKey, auth_string)
   return nil
 } // }}}
