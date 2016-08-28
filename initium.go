@@ -82,32 +82,34 @@ type RoutingCollection struct {
   method string
   params []string
   handler RequestFunction
-  permnode string
   permission uint8
 }
 
-/* {{{ Module header options - types */
-type OptionCollection struct {
-  name string
-  route string
-  permission uint8
+// {{{ Module header structure types
+type ModuleOptionElement struct {
+  Name string
+  Route string
 }
 
-type ModuleOptionsCollection struct {
-  name string
-  collection []*OptionCollection
+type ModuleCategoryCollection struct {
+  Name string
+  Collection []*ModuleOptionElement
 }
 
 type ModuleCollection struct {
   cid string
-  name string
-  route string
-  permission uint8
-  options []*ModuleOptionsCollection
+  Header *ModuleOptionElement
+  Options []*ModuleCategoryCollection
 }
-/* }}} */
+
+type InitiumHeader struct {
+  Current *ModuleCollection
+  Elements []*ModuleOptionElement
+}
+// }}}
 
 type InitiumApp struct {
+  permnodes map[string]string
   routes map[string]*RoutingCollection
   modules []*ModuleCollection
   sessions *SessionStorage
@@ -159,6 +161,7 @@ func CreateInitium(debug bool, cookie string, sessionSize int) (*InitiumApp) {
 }
 
 func (app* InitiumApp) Initialize() (*InitiumApp) {
+  app.permnodes = make(map[string]string)
   app.routes = make(map[string]*RoutingCollection, 0)
   app.CreateSessionStorage()
   app.Stats = &runtime.MemStats{}
@@ -257,55 +260,32 @@ func (app* InitiumApp) LoadTemplates(root string) {
   }
 }
 
-type HeaderElement struct {
-  Title string
-  RouteName string
-}
 
-type OptionHeader struct {
-  Title string
-  Elements []*HeaderElement
-}
-
-type ActiveHeader struct {
-  Title string
-  RouteName string
-  Options []*OptionHeader
-}
-
-type InitiumHeader struct {
-  Current *ActiveHeader
-  Elements []*HeaderElement
-}
-
-/* {{{ RenderTemplate */
+// {{{ RenderTemplate
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
   log.Println("Requesting template:", name)
 
-  var header* InitiumHeader = &InitiumHeader{}
+  var appHeader* InitiumHeader = &InitiumHeader{}
+
   for _, module := range app.modules {
     if module.cid == request.cid {
-      header.Current = &ActiveHeader{Title: module.name, RouteName: module.route}
-      if module.options != nil {
-        for _, option := range module.options {
-          var newOption = &OptionHeader{Title: option.name}
-          if option.collection != nil {
-            for _, element := range option.collection {
-              newOption.Elements = append(newOption.Elements, &HeaderElement{Title: element.name, RouteName: element.route})
-            }
-          }
-          header.Current.Options = append(header.Current.Options, newOption)
+      appHeader.Current = &ModuleCollection{Header: module.Header}
+
+      for _, category := range module.Options {
+        var categoryCollection = &ModuleCategoryCollection{Name: category.Name}
+        for _, option := range category.Collection {
+          // permission check!!
+          categoryCollection.Collection = append(categoryCollection.Collection, option)
         }
+        appHeader.Current.Options = append(appHeader.Current.Options, categoryCollection)
       }
     } else {
-      header.Elements = append(header.Elements, &HeaderElement{Title: module.name, RouteName: module.route})
+      appHeader.Elements = append(appHeader.Elements, module.Header)
     }
   }
 
-  log.Printf("%+v\n", header)
-
   var templateParam = &TemplateParameter{
-    Header: header,
+    Header: appHeader,
     Authorized: request.IsAuthorized(),
     User: request.User,
     Self: data,
@@ -326,9 +306,15 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
   return nil
 } // }}}
 
-/* {{{ RegisterController */
+// {{{ RegisterController
 func (app* InitiumApp) RegisterController(controller InitiumController) {
   var module = controller.RegisterModule()
+  var moduleId = app.GenerateUUID(5)
+
+  if module != nil && module.PermissionNode != "" {
+    app.permnodes[moduleId] = module.PermissionNode
+    log.Println("Registered permission node", module.PermissionNode, "for", moduleId)
+  }
 
   for _, v := range controller.RegisterRouting() {
     var urlparts []string = strings.Split(v.uri, "/")
@@ -346,61 +332,55 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
       continue;
     }
 
-    // app.routes = append(app.routes, 
-    newRoute := &RoutingCollection{
+    var routingTable = &RoutingCollection{
+      cid: moduleId,
       expr: expr,
       params: params,
       method: v.method,
       handler: v.call,
-    }
-
-    if module != nil {
-      newRoute.permission = v.access
-      newRoute.permnode = module.PermissionNode
+      permission: v.access,
     }
 
     if v.alias != "" {
-      app.routes[v.alias] = newRoute
+      app.routes[v.alias] = routingTable
       log.Println("Registered named route:", v.method, v.uri, "as", v.alias)
     } else {
       var unamed string = app.GenerateUUID(4)
-      app.routes[unamed] = newRoute
+      app.routes[unamed] = routingTable
       log.Println("Registered unnamed route:", v.method, v.uri, "as", unamed)
     }
   }
-  log.Println("Routing compiled for Controller.")
+  log.Println("Routing compiled for Controller:", moduleId)
 
   if module == nil {
-    log.Println("Controller has no header module.")
+    log.Println("Controller", moduleId, "has no module access.")
     return
   }
 
-  var moduleCollection* ModuleCollection = &ModuleCollection{name: module.Title, route: module.RouteName}
-  for _, opt := range controller.RegisterOptions() {
-    var moduleOptions* ModuleOptionsCollection = &ModuleOptionsCollection{name: opt.Title}
+  var moduleCollection* ModuleCollection = &ModuleCollection{
+    cid: moduleId,
+    Header: &ModuleOptionElement{
+      Name: module.Title,
+      Route: module.RouteName,
+    },
+  }
 
-    if opt.Options != nil {
-      for _, mod := range opt.Options {
-        log.Println("Registering option:", mod.Title, "at", mod.RouteName)
-        route, valid := app.routes[mod.RouteName]
-        if !valid {
-          log.Println("Routing entry for", mod.RouteName, "not found!")
-          continue
-        }
-
-        moduleOptions.collection = append(moduleOptions.collection, &OptionCollection{
-          name: mod.Title,
-          route: mod.RouteName,
-          permission: route.permission,
-        })
-      }
+  for _, category := range controller.RegisterOptions() {
+    var categoryCollection* ModuleCategoryCollection = &ModuleCategoryCollection{Name: category.Title}
+    for _, option := range category.Options {
+      log.Printf("Registered option %s [%s]\n", option.Title, category.Title)
+      categoryCollection.Collection = append(categoryCollection.Collection, &ModuleOptionElement{
+        Name: option.Title,
+        Route: option.RouteName,
+      })
     }
-    moduleCollection.options = append(moduleCollection.options, moduleOptions)
+    moduleCollection.Options = append(moduleCollection.Options, categoryCollection)
   }
   app.modules = append(app.modules, moduleCollection)
+  log.Println("Controller", moduleId, "registered successful")
 } // }}}
 
-/* {{{ ServeHTTP */
+// {{{ ServeHTTP
 func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   if r.Method == "GET" && strings.Contains(r.URL.Path, ".") {
     log.Print("File request ", r.Method, ": ", r.URL.Path)
@@ -427,7 +407,7 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         params[param] = val[0];
       }
 
-      var requestType = &InitiumRequest{Request: r, Writer: w, vars: params}
+      var requestType = &InitiumRequest{Request: r, Writer: w, vars: params, cid: route.cid}
       var err error = nil
 
       err = app.sessions.StartSession(requestType)
@@ -442,6 +422,7 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         break
       }
 
+      /*
       if requestType.IsAuthorized() && route.permnode != "" {
         requestType.Permission = &ControllerPermission{Node: route.permnode}
         err = app.sessions.SessionPermission(requestType)
@@ -459,7 +440,8 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         app.RenderTemplate(requestType, "permissions", nil)
         break
       }
-
+      */
+      log.Println("Handling with controller id:", route.cid)
       err = route.handler(requestType)
       if err != nil {
         app.RenderTemplate(requestType, "error", err)
@@ -470,7 +452,7 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 } // }}}
 
-/* {{{ AuthenticateLogin */
+// {{{ AuthenticateLogin
 func (app* InitiumApp) AuthenticateLogin (user, pass string, session ApplicationSession) error {
   log.Println("Starting Authenticate login")
 

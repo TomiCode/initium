@@ -13,16 +13,16 @@
 
     {{if .Current}}
       <div class="ui pointing dropdown item">
-        <i class="cube icon"></i>{{.Current.Title}} {{if .Current.Options}}<i class="dropdown icon"></i>{{end}}
+        <i class="cube icon"></i>{{.Current.Header.Name}} {{if .Current.Options}}<i class="dropdown icon"></i>{{end}}
         <div class="menu">
-          <a class="item" route="{{.Current.RouteName}}">Index</a>
+          <a class="item" route="{{.Current.Header.Route}}">Index</a>
           {{range .Current.Options}}
             <div class="divider"></div>
-            {{if .Title}}
-              <div class="header">{{.Title}}</div>
+            {{if .Name}}
+              <div class="header">{{.Name}}</div>
             {{end}}
-            {{range .Elements}}
-              <a class="item" route="{{.RouteName}}">{{.Title}}</a>
+            {{range .Collection}}
+              <a class="item" route="{{.Route}}">{{.Name}}</a>
             {{end}}
           {{end}}
         </div>
@@ -35,10 +35,10 @@
         <div class="menu">
           <div class="header">Your modules</div>
           {{range .Elements}}
-            <a class="item" route="{{.RouteName}}">{{.Title}}</a>
+            <a class="item" route="{{.Route}}">{{.Name}}</a>
           {{end}}
         </div>
-      <div>
+      </div>
     {{end}}
     
     <div class="right menu">
