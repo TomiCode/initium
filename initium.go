@@ -27,6 +27,7 @@ const (
   InitiumPermission_Owner       = 5
 )
 
+/* {{{ InitiumError - Subject to change */
 type InitiumError struct {
   message string
   code int
@@ -39,6 +40,7 @@ func CreateError(message string, code int) *InitiumError {
 func (err* InitiumError) Error() string {
   return err.message
 }
+/* }}} */
 
 type InitiumRequest struct {
   Permission* ControllerPermission
@@ -46,7 +48,9 @@ type InitiumRequest struct {
   Request* http.Request
   Writer http.ResponseWriter
   User* InitiumUser
+
   vars map[string]string
+  cid string
 }
 
 type RequestFunction func(*InitiumRequest) error
@@ -54,23 +58,25 @@ type RequestFunction func(*InitiumRequest) error
 type ControllerRoute struct {
   uri string
   alias string
-  method string
   access uint8
+  method string
   call RequestFunction
 }
 
 type InitiumController interface {
-  PermissionNode() string
-  RoutingRegister() []*ControllerRoute
+  RegisterModule() *InitiumModule
+  RegisterRouting() []*ControllerRoute
+  RegisterOptions() []*InitiumModuleCategory
 }
 
 type ApplicationInterface interface {
-  AuthenticateLogin (user, pass string, session ApplicationSession) error
+  AuthenticateLogin (string, string, ApplicationSession) error
   RenderTemplate(*InitiumRequest, string, interface{}) error
   GetDatabase() (*sql.DB)
 }
 
 type RoutingCollection struct {
+  cid string
   name string
   expr *regexp.Regexp
   method string
@@ -80,15 +86,38 @@ type RoutingCollection struct {
   permission uint8
 }
 
+/* {{{ Module header options - types */
+type OptionCollection struct {
+  name string
+  route string
+  permission uint8
+}
+
+type ModuleOptionsCollection struct {
+  name string
+  collection []*OptionCollection
+}
+
+type ModuleCollection struct {
+  cid string
+  name string
+  route string
+  permission uint8
+  options []*ModuleOptionsCollection
+}
+/* }}} */
+
 type InitiumApp struct {
   routes map[string]*RoutingCollection
+  modules []*ModuleCollection
   sessions *SessionStorage
-  templates *template.Template
   database *sql.DB
+  templates *template.Template
 
-  Debug bool
   SessionSize int
   SessionCookie string
+
+  Debug bool
   Stats *runtime.MemStats
 }
 
@@ -98,12 +127,30 @@ type ControllerPermission struct {
 }
 
 type TemplateParameter struct {
+  Header* InitiumHeader
   User* InitiumUser
   Authorized bool
-  AuthToken string
   SessionId string
-  Debug bool
   Self interface{}
+
+  Debug bool
+  AuthToken string
+}
+
+type InitiumModule struct {
+  Title string
+  RouteName string
+  PermissionNode string
+}
+
+type InitiumOption struct {
+  Title string
+  RouteName string
+}
+
+type InitiumModuleCategory struct {
+  Title string
+  Options []*InitiumOption
 }
 
 func CreateInitium(debug bool, cookie string, sessionSize int) (*InitiumApp) {
@@ -125,7 +172,7 @@ func (app* InitiumApp) GenerateUUID(size int) string {
   var result_id = make([]byte, size)
   rand.Read(result_id)
 
-  return fmt.Sprintf("%x", result_id)
+  return fmt.Sprintf("%02x", result_id)
 }
 
 func (app* InitiumApp) OpenDatabase(connection string) {
@@ -210,15 +257,61 @@ func (app* InitiumApp) LoadTemplates(root string) {
   }
 }
 
+type HeaderElement struct {
+  Title string
+  RouteName string
+}
+
+type OptionHeader struct {
+  Title string
+  Elements []*HeaderElement
+}
+
+type ActiveHeader struct {
+  Title string
+  RouteName string
+  Options []*OptionHeader
+}
+
+type InitiumHeader struct {
+  Current *ActiveHeader
+  Elements []*HeaderElement
+}
+
 /* {{{ RenderTemplate */
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
   log.Println("Requesting template:", name)
+
+  var header* InitiumHeader = &InitiumHeader{}
+  for _, module := range app.modules {
+    if module.cid == request.cid {
+      header.Current = &ActiveHeader{Title: module.name, RouteName: module.route}
+      if module.options != nil {
+        for _, option := range module.options {
+          var newOption = &OptionHeader{Title: option.name}
+          if option.collection != nil {
+            for _, element := range option.collection {
+              newOption.Elements = append(newOption.Elements, &HeaderElement{Title: element.name, RouteName: element.route})
+            }
+          }
+          header.Current.Options = append(header.Current.Options, newOption)
+        }
+      }
+    } else {
+      header.Elements = append(header.Elements, &HeaderElement{Title: module.name, RouteName: module.route})
+    }
+  }
+
+  log.Printf("%+v\n", header)
+
   var templateParam = &TemplateParameter{
+    Header: header,
     Authorized: request.IsAuthorized(),
     User: request.User,
+    Self: data,
+
     SessionId: request.Session.GetSessionId(),
     Debug: app.Debug,
-    Self: data,
   }
 
   if request.IsAuthorized() {
@@ -235,9 +328,9 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
 
 /* {{{ RegisterController */
 func (app* InitiumApp) RegisterController(controller InitiumController) {
-  var node = controller.PermissionNode()
+  var module = controller.RegisterModule()
 
-  for _, v := range controller.RoutingRegister() {
+  for _, v := range controller.RegisterRouting() {
     var urlparts []string = strings.Split(v.uri, "/")
     var params []string
 
@@ -259,8 +352,11 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
       params: params,
       method: v.method,
       handler: v.call,
-      permnode: node,
-      permission: v.access,
+    }
+
+    if module != nil {
+      newRoute.permission = v.access
+      newRoute.permnode = module.PermissionNode
     }
 
     if v.alias != "" {
@@ -272,7 +368,36 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
       log.Println("Registered unnamed route:", v.method, v.uri, "as", unamed)
     }
   }
-  log.Println("Routing compiled for Controller:", node)
+  log.Println("Routing compiled for Controller.")
+
+  if module == nil {
+    log.Println("Controller has no header module.")
+    return
+  }
+
+  var moduleCollection* ModuleCollection = &ModuleCollection{name: module.Title, route: module.RouteName}
+  for _, opt := range controller.RegisterOptions() {
+    var moduleOptions* ModuleOptionsCollection = &ModuleOptionsCollection{name: opt.Title}
+
+    if opt.Options != nil {
+      for _, mod := range opt.Options {
+        log.Println("Registering option:", mod.Title, "at", mod.RouteName)
+        route, valid := app.routes[mod.RouteName]
+        if !valid {
+          log.Println("Routing entry for", mod.RouteName, "not found!")
+          continue
+        }
+
+        moduleOptions.collection = append(moduleOptions.collection, &OptionCollection{
+          name: mod.Title,
+          route: mod.RouteName,
+          permission: route.permission,
+        })
+      }
+    }
+    moduleCollection.options = append(moduleCollection.options, moduleOptions)
+  }
+  app.modules = append(app.modules, moduleCollection)
 } // }}}
 
 /* {{{ ServeHTTP */

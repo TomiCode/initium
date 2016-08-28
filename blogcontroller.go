@@ -13,11 +13,17 @@ type BlogPost struct {
   Like int
 }
 
-func (controller* BlogController) PermissionNode() string {
-  return "blog_ctrl"
+func (controller* BlogController) RegisterModule() *InitiumModule {
+  return &InitiumModule{Title: "Blog", RouteName: "blog.index", PermissionNode: "blog_ctrl"}
 }
 
-func (controller* BlogController) RoutingRegister() []*ControllerRoute {
+func (controller* BlogController) RegisterOptions() []*InitiumModuleCategory {
+  return []*InitiumModuleCategory{
+    &InitiumModuleCategory{Title: "", Options: []*InitiumOption{&InitiumOption{Title: "Add entry", RouteName: "blog.add"}}},
+  }
+}
+
+func (controller* BlogController) RegisterRouting() []*ControllerRoute {
   return []*ControllerRoute{
     &ControllerRoute{uri: "/", call: controller.index, alias: "blog.index", access: InitiumPermission_None},
     &ControllerRoute{uri: "/add/", call: controller.addPost, alias: "blog.add", access: InitiumPermission_None},
