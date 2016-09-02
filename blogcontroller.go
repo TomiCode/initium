@@ -47,7 +47,7 @@ func (controller* BlogController) index(req *InitiumRequest) error {
     BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
     BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
   }
-
+  
   return controller.App.RenderTemplate(req, "blog.index", test_posts)
 }
 

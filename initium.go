@@ -27,7 +27,6 @@ const (
   InitiumPermission_Owner       = 5
 )
 
-/* {{{ InitiumError - Subject to change */
 type InitiumError struct {
   message string
   code int
@@ -40,7 +39,6 @@ func CreateError(message string, code int) *InitiumError {
 func (err* InitiumError) Error() string {
   return err.message
 }
-/* }}} */
 
 type InitiumRequest struct {
   Permission* ControllerPermission
@@ -85,7 +83,6 @@ type RoutingCollection struct {
   permission uint8
 }
 
-// {{{ Module header structure types
 type ModuleOptionElement struct {
   Name string
   Route string
@@ -106,7 +103,6 @@ type InitiumHeader struct {
   Current *ModuleCollection
   Elements []*ModuleOptionElement
 }
-// }}}
 
 type InitiumApp struct {
   permnodes map[string]string
@@ -260,8 +256,6 @@ func (app* InitiumApp) LoadTemplates(root string) {
   }
 }
 
-
-// {{{ RenderTemplate
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
   log.Println("Requesting template:", name)
 
@@ -304,9 +298,8 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
     return CreateError("Template render error", 104)
   }
   return nil
-} // }}}
+}
 
-// {{{ RegisterController
 func (app* InitiumApp) RegisterController(controller InitiumController) {
   var module = controller.RegisterModule()
   var moduleId = app.GenerateUUID(5)
@@ -378,9 +371,8 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
   }
   app.modules = append(app.modules, moduleCollection)
   log.Println("Controller", moduleId, "registered successful")
-} // }}}
+}
 
-// {{{ ServeHTTP
 func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   if r.Method == "GET" && strings.Contains(r.URL.Path, ".") {
     log.Print("File request ", r.Method, ": ", r.URL.Path)
@@ -449,10 +441,8 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       break
     }
   }
+}
 
-} // }}}
-
-// {{{ AuthenticateLogin
 func (app* InitiumApp) AuthenticateLogin (user, pass string, session ApplicationSession) error {
   log.Println("Starting Authenticate login")
 
@@ -490,4 +480,4 @@ func (app* InitiumApp) AuthenticateLogin (user, pass string, session Application
     break
   }
   return nil
-} // }}}
+}
