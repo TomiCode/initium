@@ -13,8 +13,10 @@ func main() {
   defer app.CloseDatabase()
 
   app.LoadTemplates("templates")
-  app.RegisterController(&BlogController{app})
+
   app.RegisterController(&AuthController{app})
+  app.RegisterController(&BlogController{app})
+  app.RegisterController(&TestController{app})
 
   err := http.ListenAndServe("localhost:1337", app)
   if err != nil {

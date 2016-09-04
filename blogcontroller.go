@@ -13,24 +13,24 @@ type BlogPost struct {
   Like int
 }
 
-func (controller* BlogController) RegisterModule() *InitiumModule {
+func (controller *BlogController) RegisterModule() *InitiumModule {
   return &InitiumModule{Title: "Blog", RouteName: "blog.index", PermissionNode: "blog_ctrl"}
 }
 
-func (controller* BlogController) RegisterOptions() []*InitiumModuleCategory {
+func (controller *BlogController) RegisterOptions() []*InitiumModuleCategory {
   return []*InitiumModuleCategory{
     &InitiumModuleCategory{Title: "", Options: []*InitiumOption{&InitiumOption{Title: "Add entry", RouteName: "blog.add"}}},
   }
 }
 
-func (controller* BlogController) RegisterRouting() []*ControllerRoute {
+func (controller *BlogController) RegisterRouting() []*ControllerRoute {
   return []*ControllerRoute{
     &ControllerRoute{uri: "/", call: controller.index, alias: "blog.index", access: InitiumPermission_None},
-    &ControllerRoute{uri: "/add/", call: controller.addPost, alias: "blog.add", access: InitiumPermission_None},
+    &ControllerRoute{uri: "/add/{param}", call: controller.addPost, alias: "blog.add", access: InitiumPermission_None},
   }
 }
 
-func (controller* BlogController) index(req *InitiumRequest) error {
+func (controller *BlogController) index(req *InitiumRequest) error {
   fmt.Println("Index sees params:", req.vars)
 
   var test_posts = []BlogPost{

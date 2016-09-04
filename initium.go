@@ -71,6 +71,9 @@ type ApplicationInterface interface {
   AuthenticateLogin (string, string, ApplicationSession) error
   RenderTemplate(*InitiumRequest, string, interface{}) error
   GetDatabase() (*sql.DB)
+
+  Route(name string, params ...interface{}) string
+  Redirect(request *InitiumRequest, url string)
 }
 
 type RoutingCollection struct {
@@ -80,6 +83,9 @@ type RoutingCollection struct {
   method string
   params []string
   handler RequestFunction
+
+  // Parse routing in views.
+  abstract string
   permission uint8
 }
 
@@ -156,7 +162,7 @@ func CreateInitium(debug bool, cookie string, sessionSize int) (*InitiumApp) {
   return app.Initialize()
 }
 
-func (app* InitiumApp) Initialize() (*InitiumApp) {
+func (app *InitiumApp) Initialize() (*InitiumApp) {
   app.permnodes = make(map[string]string)
   app.routes = make(map[string]*RoutingCollection, 0)
   app.CreateSessionStorage()
@@ -166,7 +172,7 @@ func (app* InitiumApp) Initialize() (*InitiumApp) {
   return app
 }
 
-func (app* InitiumApp) GenerateUUID(size int) string {
+func (app *InitiumApp) GenerateUUID(size int) string {
   rand.Seed(time.Now().UnixNano())
   var result_id = make([]byte, size)
   rand.Read(result_id)
@@ -174,7 +180,7 @@ func (app* InitiumApp) GenerateUUID(size int) string {
   return fmt.Sprintf("%02x", result_id)
 }
 
-func (app* InitiumApp) OpenDatabase(connection string) {
+func (app *InitiumApp) OpenDatabase(connection string) {
   var err error
   log.Println("Opening database connection.")
   app.database, err = sql.Open("mysql", connection)
@@ -184,7 +190,7 @@ func (app* InitiumApp) OpenDatabase(connection string) {
   }
 }
 
-func (app* InitiumApp) GetDatabase() (*sql.DB) {
+func (app *InitiumApp) GetDatabase() (*sql.DB) {
   log.Println("Accessing database")
   if app.database == nil {
     log.Println("Error: Accessing uninitialized database connection.")
@@ -199,7 +205,7 @@ func (app* InitiumApp) GetDatabase() (*sql.DB) {
   return app.database
 }
 
-func (app* InitiumApp) CloseDatabase() {
+func (app *InitiumApp) CloseDatabase() {
   if app.database != nil {
     log.Println("Closing database connection.")
     var err = app.database.Close()
@@ -209,14 +215,34 @@ func (app* InitiumApp) CloseDatabase() {
   }
 }
 
-func (app* InitiumApp) UpdateMemoryStats() {
+func (app *InitiumApp) UpdateMemoryStats() {
   runtime.ReadMemStats(app.Stats)
   log.Print("Update memory: Alloc: ", (app.Stats.Alloc / 1024), " KB, System: ", (app.Stats.Sys / 1024), " KB")
 
   time.AfterFunc(time.Duration(time.Second * 16), app.UpdateMemoryStats)
 }
 
-func (app* InitiumApp) TemplateWalk(path string, file os.FileInfo, err error) error {
+func (app *InitiumApp) Route(name string, params ...interface{}) string {
+  route, valid := app.routes[name]
+  if !valid {
+    log.Println("Requested routing does not exists:", name)
+    return ""
+  }
+
+  var appRoute string = fmt.Sprintf(route.abstract, params...)
+  var err = strings.Index(appRoute, "%!")
+  if err != -1 {
+    log.Println("Error while generating abstract route:", appRoute)
+    return appRoute[0:err]
+  }
+  return appRoute
+}
+
+func (app *InitiumApp) Redirect(request *InitiumRequest, url string) {
+  http.Redirect(request.Writer, request.Request, url, http.StatusFound)
+}
+
+func (app *InitiumApp) TemplateWalk(path string, file os.FileInfo, err error) error {
   if !file.IsDir() {
     var str, end = strings.Index(path, "/"), strings.Index(path, ".")
     if str == -1 || end == -1 {
@@ -234,7 +260,7 @@ func (app* InitiumApp) TemplateWalk(path string, file os.FileInfo, err error) er
     var localTemplate *template.Template
     if app.templates == nil {
       localTemplate = template.New(name)
-      app.templates = localTemplate
+      app.templates = localTemplate.Funcs(template.FuncMap{"route": app.Route})
     } else {
       localTemplate = app.templates.New(name)
     }
@@ -249,7 +275,7 @@ func (app* InitiumApp) TemplateWalk(path string, file os.FileInfo, err error) er
   return nil
 }
 
-func (app* InitiumApp) LoadTemplates(root string) {
+func (app *InitiumApp) LoadTemplates(root string) {
   err := filepath.Walk(root, app.TemplateWalk)
   if err != nil {
     log.Println("Error while template loading:", err)
@@ -300,7 +326,7 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
   return nil
 }
 
-func (app* InitiumApp) RegisterController(controller InitiumController) {
+func (app *InitiumApp) RegisterController(controller InitiumController) {
   var module = controller.RegisterModule()
   var moduleId = app.GenerateUUID(5)
 
@@ -316,10 +342,12 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
     for idx, part := range urlparts {
       if strings.HasPrefix(part, "{") {
         params = append(params, part[1:len(part) - 1])
-        urlparts[idx] = "([^/]*?)"
+        urlparts[idx] = "%v"
       }
     }
-    expr, err := regexp.Compile("^" + strings.Join(urlparts, "/") + "$")
+
+    var abstractUri = strings.Join(urlparts, "/")
+    expr, err := regexp.Compile("^" + strings.Replace(abstractUri, "%v", "([^/]*?)", -1) + "$")
     if err != nil {
       log.Println("[Warn] Can not compile regular expression for route:", v.uri)
       continue;
@@ -331,6 +359,7 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
       params: params,
       method: v.method,
       handler: v.call,
+      abstract: abstractUri,
       permission: v.access,
     }
 
@@ -373,7 +402,7 @@ func (app* InitiumApp) RegisterController(controller InitiumController) {
   log.Println("Controller", moduleId, "registered successful")
 }
 
-func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   if r.Method == "GET" && strings.Contains(r.URL.Path, ".") {
     log.Print("File request ", r.Method, ": ", r.URL.Path)
     http.ServeFile(w, r, "public" + r.URL.Path)
@@ -443,7 +472,7 @@ func (app* InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func (app* InitiumApp) AuthenticateLogin (user, pass string, session ApplicationSession) error {
+func (app *InitiumApp) AuthenticateLogin (user, pass string, session ApplicationSession) error {
   log.Println("Starting Authenticate login")
 
   var db *sql.DB = app.GetDatabase()

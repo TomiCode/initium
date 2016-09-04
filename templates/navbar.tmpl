@@ -10,19 +10,18 @@
     <div class="item">
       <img src="logo2.png" />
     </div>
-
     {{if .Current}}
       <div class="ui pointing dropdown item">
         <i class="cube icon"></i>{{.Current.Header.Name}} {{if .Current.Options}}<i class="dropdown icon"></i>{{end}}
         <div class="menu">
-          <a class="item" route="{{.Current.Header.Route}}">Index</a>
+          <a href="{{route .Current.Header.Route}}" class="item">Index</a>
           {{range .Current.Options}}
             <div class="divider"></div>
             {{if .Name}}
               <div class="header">{{.Name}}</div>
             {{end}}
             {{range .Collection}}
-              <a class="item" route="{{.Route}}">{{.Name}}</a>
+              <a href="{{route .Route}}" class="item">{{.Name}}</a>
             {{end}}
           {{end}}
         </div>
@@ -30,12 +29,12 @@
     {{end}}
 
     {{if .Elements}}
-      <div class="ui poiniting dropdown item">
+      <div class="ui pointing dropdown item">
         Modules <i class="dropdown icon"></i>
         <div class="menu">
           <div class="header">Your modules</div>
           {{range .Elements}}
-            <a class="item" route="{{.Route}}">{{.Name}}</a>
+            <a href="{{route .Route}}" class="item">{{.Name}}</a>
           {{end}}
         </div>
       </div>
