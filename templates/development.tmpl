@@ -4,7 +4,7 @@
   <p>
     Session: 
     <code>
-      {{.SessionId}}, {{if .Authorized}}Authorized to: {{.AuthToken}}, {{.User.Name}}{{else}}Not authorized{{end}}
+      {{.SessionId}}, {{if .User}}Authorized to: {{.AuthToken}}, {{.User.Name}}{{else}}Not authorized{{end}}
     </code>
   </p>
 </div>

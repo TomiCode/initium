@@ -12,7 +12,7 @@ func (controller *TestController) RegisterModule() *InitiumModule {
 
 func (controller *TestController) RegisterOptions() []*InitiumModuleCategory {
   return []*InitiumModuleCategory{
-    &InitiumModuleCategory{Title: "TestCategory", Options: []*InitiumOption{&InitiumOption{Title: "Test Option", RouteName: "test.opt"}}},
+    &InitiumModuleCategory{Title: "TestCategory", Options: []*ModuleOption{&ModuleOption{Name: "Test Option", Route: "test.opt"}}},
   }
 }
 

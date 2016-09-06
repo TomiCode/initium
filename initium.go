@@ -20,12 +20,14 @@ import _ "github.com/go-sql-driver/mysql"
 /* With the difference, that in the header entry None, will be shown to everyone. */
 const (
   InitiumPermission_None        = 0
-  InitiumPermission_Guest       = 1
-  InitiumPermission_Basic       = 2
-  InitiumPermission_Moderation  = 3
-  InitiumPermission_Admin       = 4
-  InitiumPermission_Owner       = 5
+  InitiumPermission_NoAuth      = 1
+  InitiumPermission_Guest       = 2
+  InitiumPermission_Basic       = 3
+  InitiumPermission_Moderation  = 4
+  InitiumPermission_Admin       = 5
+  InitiumPermission_Owner       = 6
 )
+
 
 type InitiumError struct {
   message string
@@ -40,12 +42,40 @@ func (err* InitiumError) Error() string {
   return err.message
 }
 
+
+type ControllerAccess struct {
+  Node string
+  Value uint8
+}
+
+type ControllerPermission struct {
+  permission []ControllerAccess
+}
+
+func (perms *ControllerPermission) GetAccess(node string) uint8 {
+  if perms == nil {
+    return InitiumPermission_None
+  }
+
+  for _, k := range perms.permission {
+    if k.Node == node {
+      return k.Value
+    }
+  }
+  return InitiumPermission_None
+}
+
+// type ControllerPermission struct {
+//   Node string
+//   Value uint8
+// }
+
 type InitiumRequest struct {
-  Permission* ControllerPermission
+  Permission *ControllerPermission
   Session ApplicationSession
-  Request* http.Request
+  Request *http.Request
   Writer http.ResponseWriter
-  User* InitiumUser
+  User *InitiumUser
 
   vars map[string]string
   cid string
@@ -73,7 +103,8 @@ type ApplicationInterface interface {
   GetDatabase() (*sql.DB)
 
   Route(name string, params ...interface{}) string
-  Redirect(request *InitiumRequest, url string)
+  Redirect(request *InitiumRequest, url string) error
+  // ToRoute(request *InitiumRequest, name string) error
 }
 
 type RoutingCollection struct {
@@ -84,30 +115,41 @@ type RoutingCollection struct {
   params []string
   handler RequestFunction
 
-  // Parse routing in views.
+  // Routing alias to url path.
   abstract string
   permission uint8
 }
 
-type ModuleOptionElement struct {
+type ModuleOption struct {
   Name string
   Route string
 }
 
 type ModuleCategoryCollection struct {
   Name string
-  Collection []*ModuleOptionElement
+  Collection []*ModuleOption
 }
 
 type ModuleCollection struct {
   cid string
-  Header *ModuleOptionElement
+  Header *ModuleOption
   Options []*ModuleCategoryCollection
+}
+
+type InitiumModule struct {
+  Title string
+  RouteName string
+  PermissionNode string
+}
+
+type InitiumModuleCategory struct {
+  Title string
+  Options []*ModuleOption
 }
 
 type InitiumHeader struct {
   Current *ModuleCollection
-  Elements []*ModuleOptionElement
+  Elements []*ModuleOption
 }
 
 type InitiumApp struct {
@@ -125,36 +167,14 @@ type InitiumApp struct {
   Stats *runtime.MemStats
 }
 
-type ControllerPermission struct {
-  Node string
-  Value uint8
-}
-
 type TemplateParameter struct {
   Header* InitiumHeader
   User* InitiumUser
-  Authorized bool
   SessionId string
   Self interface{}
 
   Debug bool
   AuthToken string
-}
-
-type InitiumModule struct {
-  Title string
-  RouteName string
-  PermissionNode string
-}
-
-type InitiumOption struct {
-  Title string
-  RouteName string
-}
-
-type InitiumModuleCategory struct {
-  Title string
-  Options []*InitiumOption
 }
 
 func CreateInitium(debug bool, cookie string, sessionSize int) (*InitiumApp) {
@@ -238,8 +258,9 @@ func (app *InitiumApp) Route(name string, params ...interface{}) string {
   return appRoute
 }
 
-func (app *InitiumApp) Redirect(request *InitiumRequest, url string) {
+func (app *InitiumApp) Redirect(request *InitiumRequest, url string) error {
   http.Redirect(request.Writer, request.Request, url, http.StatusFound)
+  return nil
 }
 
 func (app *InitiumApp) TemplateWalk(path string, file os.FileInfo, err error) error {
@@ -280,6 +301,8 @@ func (app *InitiumApp) LoadTemplates(root string) {
   if err != nil {
     log.Println("Error while template loading:", err)
   }
+
+  log.Println("Loaded templates from path:", root)
 }
 
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
@@ -306,7 +329,6 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
 
   var templateParam = &TemplateParameter{
     Header: appHeader,
-    Authorized: request.IsAuthorized(),
     User: request.User,
     Self: data,
 
@@ -314,7 +336,7 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
     Debug: app.Debug,
   }
 
-  if request.IsAuthorized() {
+  if request.User != nil {
     templateParam.AuthToken = request.User.AuthToken
   }
 
@@ -381,7 +403,7 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
 
   var moduleCollection* ModuleCollection = &ModuleCollection{
     cid: moduleId,
-    Header: &ModuleOptionElement{
+    Header: &ModuleOption{
       Name: module.Title,
       Route: module.RouteName,
     },
@@ -390,11 +412,8 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
   for _, category := range controller.RegisterOptions() {
     var categoryCollection* ModuleCategoryCollection = &ModuleCategoryCollection{Name: category.Title}
     for _, option := range category.Options {
-      log.Printf("Registered option %s [%s]\n", option.Title, category.Title)
-      categoryCollection.Collection = append(categoryCollection.Collection, &ModuleOptionElement{
-        Name: option.Title,
-        Route: option.RouteName,
-      })
+      log.Printf("Registered option %s [%s]\n", option.Name, category.Title)
+      categoryCollection.Collection = append(categoryCollection.Collection, option)
     }
     moduleCollection.Options = append(moduleCollection.Options, categoryCollection)
   }
@@ -420,9 +439,12 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
       if len(route.params) > 0 {
         for value := range uriScheme[1:] {
-          params[route.params[value - 1]] = uriScheme[value]
+          log.Println("Parsing parameters", value)
+          log.Println(params)
+          params[route.params[value]] = uriScheme[value + 1]
         }
       }
+      log.Println(params)
 
       for param, val := range r.URL.Query() {
         params[param] = val[0];
@@ -443,25 +465,29 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         break
       }
 
-      /*
-      if requestType.IsAuthorized() && route.permnode != "" {
-        requestType.Permission = &ControllerPermission{Node: route.permnode}
-        err = app.sessions.SessionPermission(requestType)
-        if err != nil {
-          log.Println("Permission request failed:", err)
+      if (route.permission == InitiumPermission_NoAuth && requestType.User != nil) {
+        log.Println("Route only for not authorized.")
+        break
+      } else if route.permission != InitiumPermission_None && route.permission != InitiumPermission_NoAuth {
+        if requestType.User == nil {
+          log.Println("No access!!!!")
+          break;
         }
 
-        if route.permission > requestType.Permission.Value {
-          log.Println("User", requestType.Session.GetSessionId(), "has no permissions to view route:", route.name)
-          app.RenderTemplate(requestType, "permissions", nil)
+        err = app.sessions.SessionPermission(requestType)
+        if err != nil {
+          log.Println("Error while requesting permissions.")
+          break;
+        }
+
+        var permnode, valid = app.permnodes[route.cid]
+        if !valid || requestType.Permission.GetAccess(permnode) < route.permission {
+          log.Println("No access...!!!.")
           break
         }
-      } else if !requestType.IsAuthorized() && route.permission > 0 {
-        log.Println("Guest has no permissions to view route:", route.name)
-        app.RenderTemplate(requestType, "permissions", nil)
-        break
+        log.Println("User has access to authorized routing.")
       }
-      */
+
       log.Println("Handling with controller id:", route.cid)
       err = route.handler(requestType)
       if err != nil {
@@ -472,7 +498,7 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func (app *InitiumApp) AuthenticateLogin (user, pass string, session ApplicationSession) error {
+func (app *InitiumApp) AuthenticateLogin(user, pass string, session ApplicationSession) error {
   log.Println("Starting Authenticate login")
 
   var db *sql.DB = app.GetDatabase()

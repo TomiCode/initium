@@ -19,7 +19,12 @@ func (controller *BlogController) RegisterModule() *InitiumModule {
 
 func (controller *BlogController) RegisterOptions() []*InitiumModuleCategory {
   return []*InitiumModuleCategory{
-    &InitiumModuleCategory{Title: "", Options: []*InitiumOption{&InitiumOption{Title: "Add entry", RouteName: "blog.add"}}},
+    &InitiumModuleCategory{
+      Title: "", 
+      Options: []*ModuleOption{
+        &ModuleOption{Name: "Add entry", Route: "blog.add"},
+      },
+    },
   }
 }
 

@@ -22,24 +22,19 @@ type InitiumUser struct {
 }
 
 type ApplicationSession interface {
+  // Debug
   GetSessionId() string
+
   SetValue(string, interface{})
   GetValue(string) interface{}
   IsValid(string) bool
-}
-
-/* A bit bullshit.. */
-func (request* InitiumRequest) IsAuthorized() bool {
-  if request.User != nil {
-    return true
-  }
-  return false
 }
 
 /* Debug function - this should be removed after the testing stages. */
 func (session *InitiumSession) GetSessionId() string {
   return session.sid
 }
+
 
 func (session *InitiumSession) GetValue(key string) interface{} {
   if data, valid := session.values[key]; valid {
@@ -130,15 +125,26 @@ func (storage* SessionStorage) SessionPermission(request* InitiumRequest) error 
   if db == nil {
     return CreateError("Database connection not exists", 901)
   }
+
   var auth_token = request.Session.GetValue(SessionAuthKey).(string)
-  var err = db.QueryRow("SELECT permissions.value FROM users JOIN permissions ON users.id = permissions.user_id WHERE users.auth_token=? AND permissions.controller=?", auth_token, request.Permission.Node).Scan(&request.Permission.Value)
-  if err == sql.ErrNoRows {
-    log.Println("No valid permission for node:", request.Permission.Node)
-    request.Permission.Value = 0
-    return nil
-  } else if err != nil {
+  var rows, err = db.Query("SELECT permissions.controller, permissions.value FROM users JOIN permissions ON users.id = permissions.user_id WHERE users.auth_token=?", auth_token)
+  if err != nil {
+    log.Println("Error while permission query:", err)
     return err
   }
-  log.Println("Found user permission node:", request.Permission.Node, request.Permission.Value)
+  defer rows.Close()
+
+  var permissions *ControllerPermission = &ControllerPermission{}
+  for rows.Next() {
+    var node ControllerAccess = ControllerAccess{}
+    if err = rows.Scan(&node.Node, &node.Value); err != nil {
+      log.Println("Error while rowScan:", err)
+      continue
+    }
+    log.Println("Permission node for:", node.Node, "with", node.Value)
+    permissions.permission = append(permissions.permission, node)
+  }
+
+  request.Permission = permissions
   return nil
 }

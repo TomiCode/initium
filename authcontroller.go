@@ -16,12 +16,15 @@ func (controller* AuthController) RegisterOptions() []*InitiumModuleCategory {
 
 func (controller* AuthController) RegisterRouting() []*ControllerRoute {
   return []*ControllerRoute{
-    &ControllerRoute{uri: "/auth", call: controller.getLogin, alias: "auth.login"},
+    &ControllerRoute{uri: "/auth", call: controller.getLogin, alias: "auth.login", access: InitiumPermission_NoAuth},
     &ControllerRoute{uri: "/auth", method: "POST", call: controller.postLogin, alias: "auth.login.post"},
   }
 }
 
 func (controller *AuthController) getLogin(req *InitiumRequest) error {
+  if req.User != nil {
+    
+  }
   return controller.App.RenderTemplate(req, "auth.login", nil)
 }
 
