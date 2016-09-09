@@ -1,0 +1,10 @@
+{{template "navbar" .Header}}
+<div class="ui container">
+  {{if .Debug}}
+    {{template "development" .}}
+  {{end}}
+  <div class="ui one column grid">
+    <h2>Blog module <code>Add entry</code></h2>
+  </div>
+</div>
+{{template "footer"}}
