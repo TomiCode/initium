@@ -7,7 +7,7 @@ type TestController struct {
 }
 
 func (controller *TestController) RegisterModule() *InitiumModule {
-  return &InitiumModule{Title: "Test", RouteName: "test.index", PermissionNode: "test_ctrl"}
+  return &InitiumModule{Title: "Test", RouteName: "test.index", ControllerAlias: "test_ctrl"}
 }
 
 func (controller *TestController) RegisterOptions() []*InitiumModuleCategory {
@@ -18,7 +18,7 @@ func (controller *TestController) RegisterOptions() []*InitiumModuleCategory {
 
 func (controller *TestController) RegisterRouting() []*ControllerRoute {
   return []*ControllerRoute{
-    &ControllerRoute{uri: "/test", call: controller.index, alias: "test.index", access: InitiumPermission_None},
+    &ControllerRoute{uri: "/test", call: controller.index, alias: "test.index"},
   }
 }
 

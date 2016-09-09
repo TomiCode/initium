@@ -6,7 +6,11 @@ import (
   "database/sql"
 )
 
-const SessionAuthKey = "user_auth"
+const ( 
+  Session_AuthKey = "user_auth"
+  Session_Cookie  = "__initium_app"
+  Session_Size    = 16
+)
 
 type InitiumSession struct {
   /* Debug only field */
@@ -72,7 +76,7 @@ func (storage* SessionStorage) NewSession(sessionToken string) (*InitiumSession)
 
 func (storage* SessionStorage) StartSession(request* InitiumRequest) error {
   var sessionToken string = ""
-  if cookie, err := request.Request.Cookie(storage.app.SessionCookie); err == nil {
+  if cookie, err := request.Request.Cookie(Session_Cookie); err == nil {
     sessionToken = cookie.Value
   }
 
@@ -83,8 +87,8 @@ func (storage* SessionStorage) StartSession(request* InitiumRequest) error {
       return nil
     }
   }
-  sessionToken = storage.app.GenerateUUID(storage.app.SessionSize)
-  cookie := http.Cookie{Name: storage.app.SessionCookie, Value: sessionToken, Path: "/", HttpOnly: true}
+  sessionToken = storage.app.GenerateUUID(Session_Size)
+  cookie := http.Cookie{Name: Session_Cookie, Value: sessionToken, Path: "/", HttpOnly: true}
 
   request.Session = storage.NewSession(sessionToken)
   http.SetCookie(request.Writer, &cookie)
@@ -101,10 +105,10 @@ func (storage* SessionStorage) SessionAuthenticate(request* InitiumRequest) erro
     return CreateError("Database connection not valid", 901)
   }
 
-  if !request.Session.IsValid(SessionAuthKey) {
+  if !request.Session.IsValid(Session_AuthKey) {
     return nil
   }
-  var auth_token string = request.Session.GetValue(SessionAuthKey).(string)
+  var auth_token string = request.Session.GetValue(Session_AuthKey).(string)
   var user_row = db.QueryRow("SELECT login, token, email FROM users WHERE auth_token=?", auth_token)
   log.Println("User auth session token:", auth_token)
 
@@ -121,12 +125,13 @@ func (storage* SessionStorage) SessionAuthenticate(request* InitiumRequest) erro
 }
 
 func (storage* SessionStorage) SessionPermission(request* InitiumRequest) error {
+  log.Println("Sstarting session permission managment.")
   var db *sql.DB = storage.app.GetDatabase()
   if db == nil {
     return CreateError("Database connection not exists", 901)
   }
 
-  var auth_token = request.Session.GetValue(SessionAuthKey).(string)
+  var auth_token = request.Session.GetValue(Session_AuthKey).(string)
   var rows, err = db.Query("SELECT permissions.controller, permissions.value FROM users JOIN permissions ON users.id = permissions.user_id WHERE users.auth_token=?", auth_token)
   if err != nil {
     log.Println("Error while permission query:", err)
@@ -134,17 +139,28 @@ func (storage* SessionStorage) SessionPermission(request* InitiumRequest) error 
   }
   defer rows.Close()
 
-  var permissions *ControllerPermission = &ControllerPermission{}
+  // var permissions *ControllerPermission = &ControllerPermission{}
+  var controllerAlias string
+  // var valid bool
+
   for rows.Next() {
-    var node ControllerAccess = ControllerAccess{}
-    if err = rows.Scan(&node.Node, &node.Value); err != nil {
+    var value string
+
+    if err = rows.Scan(&controllerAlias, &value); err != nil {
       log.Println("Error while rowScan:", err)
       continue
     }
-    log.Println("Permission node for:", node.Node, "with", node.Value)
-    permissions.permission = append(permissions.permission, node)
+
+    // node.CId, valid = storage.app.permnodes[permNode]
+    // if !valid {
+    //   log.Println("Error while node to cid conversion.")
+    //   continue
+    // }
+
+    log.Println("Permission node for:", controllerAlias, "with", value)
+    // permissions.permission = append(permissions.permission, node)
   }
 
-  request.Permission = permissions
+  // request.Permission = permissions
   return nil
 }

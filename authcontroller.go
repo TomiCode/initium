@@ -16,7 +16,7 @@ func (controller* AuthController) RegisterOptions() []*InitiumModuleCategory {
 
 func (controller* AuthController) RegisterRouting() []*ControllerRoute {
   return []*ControllerRoute{
-    &ControllerRoute{uri: "/auth", call: controller.getLogin, alias: "auth.login", access: InitiumPermission_NoAuth},
+    &ControllerRoute{uri: "/auth", call: controller.getLogin, alias: "auth.login", access: Permission_NoAuth},
     &ControllerRoute{uri: "/auth", method: "POST", call: controller.postLogin, alias: "auth.login.post"},
   }
 }

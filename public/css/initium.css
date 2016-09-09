@@ -35,3 +35,11 @@ body { }
   margin-top: -1em;
   margin-bottom: -1em;
 }
+
+.ui.container .item.logo {
+  padding: 0.4em;
+}
+
+.ui.container .item.logo img {
+  width: 40px;
+}

@@ -19,13 +19,15 @@ import _ "github.com/go-sql-driver/mysql"
 /* Initium permissions. Those values are valid in header entries as of user permissions. */
 /* With the difference, that in the header entry None, will be shown to everyone. */
 const (
-  InitiumPermission_None        = 0
-  InitiumPermission_NoAuth      = 1
-  InitiumPermission_Guest       = 2
-  InitiumPermission_Basic       = 3
-  InitiumPermission_Moderation  = 4
-  InitiumPermission_Admin       = 5
-  InitiumPermission_Owner       = 6
+  Permission_None       = 0x00
+
+  Permission_Auth_None  = 0x01
+  Permission_Auth_User  = 0x11
+  Permission_Auth_Mod   = 0x21
+  Permission_Auth_Admin = 0x41
+  Permission_Auth_Owner = 0x81
+
+  Permission_NoAuth     = 0x02
 )
 
 
@@ -43,8 +45,9 @@ func (err* InitiumError) Error() string {
 }
 
 
+/*
 type ControllerAccess struct {
-  Node string
+  CId string
   Value uint8
 }
 
@@ -52,18 +55,46 @@ type ControllerPermission struct {
   permission []ControllerAccess
 }
 
-func (perms *ControllerPermission) GetAccess(node string) uint8 {
-  if perms == nil {
+func (controllerPerm *ControllerPermission) GetAccess(cid string) uint8 {
+  if controllerPerm == nil {
     return InitiumPermission_None
   }
 
-  for _, k := range perms.permission {
-    if k.Node == node {
-      return k.Value
+  for _, permission := range controllerPerm.permission {
+    if permission.CId == cid {
+      return permission.Value
     }
   }
   return InitiumPermission_None
 }
+
+func (controllerPerms *ControllerPermission) HasAccess(cid string, perm uint8) bool {
+  log.Println("HasAccess:", cid, perm, controllerPerms)
+  if controllerPerms == nil {
+    if (perm & InitiumPermission_Auth) != 0 {
+      return false
+    } else {
+      return true
+    }
+  }
+
+  if (perm & InitiumPermission_NoAuth) != 0 {
+    return false
+  }
+
+  for _, permNode := range controllerPerms.permission {
+    if permNode.CId == cid {
+      log.Println("Checking permission for", cid, "with", perm, "compared", permNode.Value)
+      if (perm & permNode.Value) == (perm & 0x0F) {
+        return true
+      } else {
+        return false
+      }
+    }
+  }
+  return false
+}
+*/
 
 // type ControllerPermission struct {
 //   Node string
@@ -71,14 +102,15 @@ func (perms *ControllerPermission) GetAccess(node string) uint8 {
 // }
 
 type InitiumRequest struct {
-  Permission *ControllerPermission
+  // Permission *ControllerPermission
+  Controller string
   Session ApplicationSession
   Request *http.Request
   Writer http.ResponseWriter
   User *InitiumUser
 
   vars map[string]string
-  cid string
+  // cid string
 }
 
 type RequestFunction func(*InitiumRequest) error
@@ -108,8 +140,10 @@ type ApplicationInterface interface {
 }
 
 type RoutingCollection struct {
-  cid string
-  name string
+  controller string 
+
+  // cid string
+  // name string
   expr *regexp.Regexp
   method string
   params []string
@@ -131,15 +165,17 @@ type ModuleCategoryCollection struct {
 }
 
 type ModuleCollection struct {
-  cid string
+  // cid string
+
   Header *ModuleOption
   Options []*ModuleCategoryCollection
+  Controller string
 }
 
 type InitiumModule struct {
   Title string
   RouteName string
-  PermissionNode string
+  ControllerAlias string
 }
 
 type InitiumModuleCategory struct {
@@ -153,15 +189,15 @@ type InitiumHeader struct {
 }
 
 type InitiumApp struct {
-  permnodes map[string]string
+  // permnodes map[string]string
+
   routes map[string]*RoutingCollection
   modules []*ModuleCollection
   sessions *SessionStorage
   database *sql.DB
   templates *template.Template
-
-  SessionSize int
-  SessionCookie string
+  // SessionSize int
+  // SessionCookie string
 
   Debug bool
   Stats *runtime.MemStats
@@ -177,13 +213,13 @@ type TemplateParameter struct {
   AuthToken string
 }
 
-func CreateInitium(debug bool, cookie string, sessionSize int) (*InitiumApp) {
-  var app = &InitiumApp{Debug: debug, SessionCookie: cookie, SessionSize: sessionSize}
+func CreateInitium(debug bool) (*InitiumApp) {
+  var app = &InitiumApp{Debug: debug}
   return app.Initialize()
 }
 
 func (app *InitiumApp) Initialize() (*InitiumApp) {
-  app.permnodes = make(map[string]string)
+  // app.permnodes = make(map[string]string)
   app.routes = make(map[string]*RoutingCollection, 0)
   app.CreateSessionStorage()
   app.Stats = &runtime.MemStats{}
@@ -260,6 +296,7 @@ func (app *InitiumApp) Route(name string, params ...interface{}) string {
 
 func (app *InitiumApp) Redirect(request *InitiumRequest, url string) error {
   http.Redirect(request.Writer, request.Request, url, http.StatusFound)
+
   return nil
 }
 
@@ -311,14 +348,13 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
   var appHeader* InitiumHeader = &InitiumHeader{}
 
   for _, module := range app.modules {
-    if module.cid == request.cid {
+    if module.Controller == request.Controller {
       appHeader.Current = &ModuleCollection{Header: module.Header}
 
       for _, category := range module.Options {
         var categoryCollection = &ModuleCategoryCollection{Name: category.Name}
         for _, option := range category.Collection {
-          // permission check!!
-          categoryCollection.Collection = append(categoryCollection.Collection, option)
+          categoryCollection.Collection = append(categoryCollection.Collection, option)  
         }
         appHeader.Current.Options = append(appHeader.Current.Options, categoryCollection)
       }
@@ -350,12 +386,19 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
 
 func (app *InitiumApp) RegisterController(controller InitiumController) {
   var module = controller.RegisterModule()
-  var moduleId = app.GenerateUUID(5)
+  var controllerAlias string
+  // var moduleId = app.GenerateUUID(5)
 
-  if module != nil && module.PermissionNode != "" {
-    app.permnodes[moduleId] = module.PermissionNode
-    log.Println("Registered permission node", module.PermissionNode, "for", moduleId)
+  if module != nil && module.ControllerAlias != "" {
+    //app.permnodes[moduleId] = module.PermissionNode
+    //app.permnodes[module.PermissionNode] = moduleId
+    //log.Println("Registered permission node", module.PermissionNode, "for", moduleId)
+
+    controllerAlias = module.ControllerAlias
+  } else {
+    controllerAlias = app.GenerateUUID(5)
   }
+  log.Println("Started controller registration:", controllerAlias)
 
   for _, v := range controller.RegisterRouting() {
     var urlparts []string = strings.Split(v.uri, "/")
@@ -376,13 +419,14 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
     }
 
     var routingTable = &RoutingCollection{
-      cid: moduleId,
+      // cid: moduleId,
       expr: expr,
       params: params,
       method: v.method,
       handler: v.call,
       abstract: abstractUri,
       permission: v.access,
+      controller: controllerAlias,
     }
 
     if v.alias != "" {
@@ -394,15 +438,15 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
       log.Println("Registered unnamed route:", v.method, v.uri, "as", unamed)
     }
   }
-  log.Println("Routing compiled for Controller:", moduleId)
+  log.Println("Routing table compiled for:", controllerAlias)
 
   if module == nil {
-    log.Println("Controller", moduleId, "has no module access.")
+    log.Println("Controller registered without options:", controllerAlias)
     return
   }
 
   var moduleCollection* ModuleCollection = &ModuleCollection{
-    cid: moduleId,
+    Controller: controllerAlias,
     Header: &ModuleOption{
       Name: module.Title,
       Route: module.RouteName,
@@ -418,7 +462,7 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
     moduleCollection.Options = append(moduleCollection.Options, categoryCollection)
   }
   app.modules = append(app.modules, moduleCollection)
-  log.Println("Controller", moduleId, "registered successful")
+  log.Println("Controller registered:", controllerAlias)
 }
 
 func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -450,7 +494,7 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         params[param] = val[0];
       }
 
-      var requestType = &InitiumRequest{Request: r, Writer: w, vars: params, cid: route.cid}
+      var requestType = &InitiumRequest{Request: r, Writer: w, Controller: route.controller, vars: params}
       var err error = nil
 
       err = app.sessions.StartSession(requestType)
@@ -465,30 +509,32 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         break
       }
 
-      if (route.permission == InitiumPermission_NoAuth && requestType.User != nil) {
-        log.Println("Route only for not authorized.")
-        break
-      } else if route.permission != InitiumPermission_None && route.permission != InitiumPermission_NoAuth {
-        if requestType.User == nil {
-          log.Println("No access!!!!")
-          break;
-        }
+      // if (route.permission & InitiumPermission_NoAuth) != 0 && requestType.User != nil {
+      //   log.Println("Route only for not authorized.")
+      //   break
+      // } else if (route.permission & InitiumPermission_Auth) == InitiumPermission_Auth && requestType.User == nil {
+      //   log.Println("Route only for authorized users.")
+      //   break
+      // } else if route.permission != 0 {
+      //   if requestType.User == nil {
+      //     log.Println("Not authorized")
+      //     break;
+      //   }
 
-        err = app.sessions.SessionPermission(requestType)
-        if err != nil {
-          log.Println("Error while requesting permissions.")
-          break;
-        }
+      //   err = app.sessions.SessionPermission(requestType)
+      //   if err != nil {
+      //     log.Println("Error while requesting permissions.")
+      //     break;
+      //   }
 
-        var permnode, valid = app.permnodes[route.cid]
-        if !valid || requestType.Permission.GetAccess(permnode) < route.permission {
-          log.Println("No access...!!!.")
-          break
-        }
-        log.Println("User has access to authorized routing.")
-      }
+      //   if requestType.Permission.HasAccess(route.cid, route.permission) {
+      //     log.Println("Access restricted. You have no access into this route.")
+      //     break
+      //   }
+      //   log.Println("User has access to authorized routing.")
+      // }
 
-      log.Println("Handling with controller id:", route.cid)
+      log.Println("Routing handled with controller:", requestType.Controller)
       err = route.handler(requestType)
       if err != nil {
         app.RenderTemplate(requestType, "error", err)
@@ -531,7 +577,7 @@ func (app *InitiumApp) AuthenticateLogin(user, pass string, session ApplicationS
     if err != nil {
       return err
     }
-    session.SetValue(SessionAuthKey, auth_string)
+    session.SetValue(Session_AuthKey, auth_string)
     break
   }
   return nil

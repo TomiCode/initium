@@ -14,7 +14,7 @@ type BlogPost struct {
 }
 
 func (controller *BlogController) RegisterModule() *InitiumModule {
-  return &InitiumModule{Title: "Blog", RouteName: "blog.index", PermissionNode: "blog_ctrl"}
+  return &InitiumModule{Title: "Blog", RouteName: "blog.index", ControllerAlias: "blog_ctrl"}
 }
 
 func (controller *BlogController) RegisterOptions() []*InitiumModuleCategory {
@@ -30,8 +30,8 @@ func (controller *BlogController) RegisterOptions() []*InitiumModuleCategory {
 
 func (controller *BlogController) RegisterRouting() []*ControllerRoute {
   return []*ControllerRoute{
-    &ControllerRoute{uri: "/", call: controller.index, alias: "blog.index", access: InitiumPermission_None},
-    &ControllerRoute{uri: "/add/{param}", call: controller.addPost, alias: "blog.add", access: InitiumPermission_None},
+    &ControllerRoute{uri: "/", call: controller.index, alias: "blog.index"},
+    &ControllerRoute{uri: "/add", call: controller.addPost, alias: "blog.add", access: Permission_Auth_None},
   }
 }
 
@@ -57,6 +57,5 @@ func (controller *BlogController) index(req *InitiumRequest) error {
 }
 
 func (controller* BlogController) addPost(req *InitiumRequest) error {
-  fmt.Println("BlogController addPost.")
-  return nil
+  return controller.App.RenderTemplate(req, "blog.add", nil)
 }
