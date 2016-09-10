@@ -74,6 +74,24 @@ func (request *InitiumRequest) Redirect(url string) error {
   return nil
 }
 
+func (request *InitiumRequest) HandleAccess(route *RoutingCollection) error {
+  if route.permission == Permission_NoAuth && request.User != nil {
+    return CreateError("Only for unauthorized users.", 405)
+  }
+  
+  if (route.permission & Permission_Auth_None) == Permission_Auth_None {
+    if request.User == nil {
+      return CreateError("Not authorized.", 405)
+    }
+    
+    var currentPermission uint8 = request.Permissions.Access(route.controller)
+    if (route.permission & currentPermission) != currentPermission {
+      return CreateError("No privileges", 405)
+    }
+  }
+  return nil
+}
+
 type RequestFunction func(*InitiumRequest) error
 
 type ControllerRoute struct {
@@ -289,7 +307,6 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
   log.Println("Requesting template:", name)
 
   var appHeader* InitiumHeader = &InitiumHeader{}
-
   for _, module := range app.modules {
     if module.Controller == request.Controller {
       appHeader.Current = &ModuleCollection{Header: module.Header}
@@ -297,9 +314,13 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
       for _, category := range module.Options {
         var categoryCollection = &ModuleCategoryCollection{Name: category.Name}
         for _, option := range category.Collection {
-          categoryCollection.Collection = append(categoryCollection.Collection, option)  
+          if request.HandleAccess(app.routes[option.Route]) == nil {
+            categoryCollection.Collection = append(categoryCollection.Collection, option)  
+          }
         }
-        appHeader.Current.Options = append(appHeader.Current.Options, categoryCollection)
+        if len(categoryCollection.Collection) > 0 {
+          appHeader.Current.Options = append(appHeader.Current.Options, categoryCollection)
+        }
       }
     } else {
       appHeader.Elements = append(appHeader.Elements, module.Header)
@@ -446,25 +467,13 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         break
       }
 
-      if route.permission == Permission_NoAuth && requestType.User != nil {
-        log.Println("This route is not for authorized users only.")
-        break;
+      err = requestType.HandleAccess(route)
+      if err != nil {
+        log.Println("Permission error:", err)
       }
 
-      if (route.permission & Permission_Auth_None) == Permission_Auth_None {
-        if requestType.User == nil {
-          log.Println("Only for authorized users.")
-          break
-        }
-
-        var currentPermission uint8 = requestType.Permissions.Access(requestType.Controller)
-        if (route.permission & currentPermission) != currentPermission {
-          log.Println("No privileges to access this routing.")
-          break;
-        }
-      }
       log.Println("Routing handled with controller:", requestType.Controller)
-      
+
       err = route.handler(requestType)
       if err != nil {
         app.RenderTemplate(requestType, "error", err)
@@ -500,7 +509,7 @@ func (app *InitiumApp) AuthenticateLogin(user, pass string, session ApplicationS
       continue
     } else if err != sql.ErrNoRows {
       log.Println("Error occured while database query:", err)
-      break
+      return err
     }
 
     _, err = db.Exec("UPDATE users SET auth_token=? WHERE id=?", auth_string, user_id)

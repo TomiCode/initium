@@ -22,9 +22,6 @@ func (controller* AuthController) RegisterRouting() []*ControllerRoute {
 }
 
 func (controller *AuthController) getLogin(req *InitiumRequest) error {
-  if req.User != nil {
-    
-  }
   return controller.App.RenderTemplate(req, "auth.login", nil)
 }
 
@@ -36,12 +33,12 @@ func (controller *AuthController) postLogin(req *InitiumRequest) error {
   }
 
   var user, pass = req.Request.Form.Get("email"), req.Request.Form.Get("passwd")
+  
   err = controller.App.AuthenticateLogin(user, pass, req.Session)
   if err != nil {
     log.Println("Error occured while login:", err)
   }
-  log.Println("Authenticate user:", user, pass)
 
-  req.Redirect(controller.App.Route("blog.index"))
-  return nil
+  log.Println("Authenticate user:", user, pass)
+  return req.Redirect(controller.App.Route("blog.index"))
 }
