@@ -42,6 +42,6 @@ func (controller *AuthController) postLogin(req *InitiumRequest) error {
   }
   log.Println("Authenticate user:", user, pass)
 
-  controller.App.Redirect(req, controller.App.Route("blog.index"))
+  req.Redirect(controller.App.Route("blog.index"))
   return nil
 }

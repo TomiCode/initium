@@ -139,28 +139,16 @@ func (storage* SessionStorage) SessionPermission(request* InitiumRequest) error 
   }
   defer rows.Close()
 
-  // var permissions *ControllerPermission = &ControllerPermission{}
   var controllerAlias string
-  // var valid bool
-
+  var permissionValue uint8
   for rows.Next() {
-    var value string
-
-    if err = rows.Scan(&controllerAlias, &value); err != nil {
-      log.Println("Error while rowScan:", err)
+    if err = rows.Scan(&controllerAlias, &permissionValue); err != nil {
+      log.Println("Error while appending permission:", err)
       continue
     }
 
-    // node.CId, valid = storage.app.permnodes[permNode]
-    // if !valid {
-    //   log.Println("Error while node to cid conversion.")
-    //   continue
-    // }
-
-    log.Println("Permission node for:", controllerAlias, "with", value)
-    // permissions.permission = append(permissions.permission, node)
+    request.Permissions = append(request.Permissions, &PermissionNode{Controller: controllerAlias, Value: permissionValue})
+    log.Println("Permission node for:", controllerAlias, "with", controllerAlias)
   }
-
-  // request.Permission = permissions
   return nil
 }
