@@ -159,6 +159,7 @@ type InitiumModuleCategory struct {
 type InitiumHeader struct {
   Current *ModuleCollection
   Elements []*ModuleOption
+  Alerts []*InitiumAlert
 }
 
 type TemplateParameter struct {
@@ -308,13 +309,14 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
 
   var appHeader* InitiumHeader = &InitiumHeader{}
   for _, module := range app.modules {
+    log.Println("Module:", module.Controller, "Request:", request.Controller)
     if module.Controller == request.Controller {
       appHeader.Current = &ModuleCollection{Header: module.Header}
 
       for _, category := range module.Options {
         var categoryCollection = &ModuleCategoryCollection{Name: category.Name}
         for _, option := range category.Collection {
-          if request.HandleAccess(app.routes[option.Route]) == nil {
+          if option.Route != "" && request.HandleAccess(app.routes[option.Route]) == nil {
             categoryCollection.Collection = append(categoryCollection.Collection, option)  
           }
         }
@@ -323,9 +325,12 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
         }
       }
     } else {
-      appHeader.Elements = append(appHeader.Elements, module.Header)
+      if module.Header.Route != "" && request.HandleAccess(app.routes[module.Header.Route]) == nil {
+        appHeader.Elements = append(appHeader.Elements, module.Header)
+      }
     }
   }
+  appHeader.Alerts = request.PullAlerts()
 
   var templateParam = &TemplateParameter{
     Header: appHeader,
@@ -470,6 +475,7 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       err = requestType.HandleAccess(route)
       if err != nil {
         log.Println("Permission error:", err)
+        break
       }
 
       log.Println("Routing handled with controller:", requestType.Controller)

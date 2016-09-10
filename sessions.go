@@ -6,8 +6,9 @@ import (
   "database/sql"
 )
 
-const ( 
-  Session_AuthKey = "user_auth"
+const (
+  Session_AuthKey = "_initium_auth"
+  Session_Alerts  = "_initium_alerts"
   Session_Cookie  = "__initium_app"
   Session_Size    = 16
 )
@@ -15,6 +16,7 @@ const (
 type InitiumSession struct {
   /* Debug only field */
   sid string
+
   values map[string]interface{}
 }
 
@@ -32,6 +34,8 @@ type ApplicationSession interface {
   SetValue(string, interface{})
   GetValue(string) interface{}
   IsValid(string) bool
+  Remove(string)
+  PopValue(key string) interface{}
 }
 
 /* Debug function - this should be removed after the testing stages. */
@@ -51,6 +55,18 @@ func (session *InitiumSession) IsValid(key string) bool {
   value, valid := session.values[key];
   log.Println("Accessing session:", key, "=>", value)
   return valid
+}
+
+func (session *InitiumSession) Remove(key string) {
+  delete(session.values, key)
+}
+
+func (session *InitiumSession) PopValue(key string) interface{} {
+  if value, valid := session.values[key]; valid {
+    delete(session.values, key)
+    return value
+  }
+  return nil
 }
 
 func (session *InitiumSession) SetValue(key string, data interface{}) {

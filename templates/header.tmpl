@@ -2,7 +2,6 @@
 <html lang="pl">
 <head>
   <title>Initium</title>
-  
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
   <meta charset="utf-8">
   <meta name="description" content="Initium">
@@ -15,12 +14,84 @@
   <link rel="stylesheet" type="text/css" href="css/initium.css">
 
   <!-- jQuery 3.1.0 -->
-  <script src="js/jquery-3.1.0.js"></script>
+  <script type="text/javascript" src="js/jquery-3.1.0.js"></script>
 
   <!-- Semantic UI Javascript file -->
-  <script src="js/semantic.js"></script> 
+  <script type="text/javascript" src="js/semantic.js"></script> 
 
   <!-- Initium javascript ;) -->
   <script type="text/javascript" src="js/initium.js"></script>
 </head>
+
 <body>
+  <!-- Initium Application header -->
+  <div class="ui container">
+    <h1>Initium</h1>
+  </div>
+
+  <div class="ui secondary general menu">
+    <div class="ui container">
+      <div class="item logo">
+        <img src="initium.png" />
+      </div>
+      {{if .Current}}
+        {{if .Current.Header.Route}}
+          <div class="ui pointing dropdown item">
+            <i class="angle double right icon"></i>{{.Current.Header.Name}} <i class="dropdown icon"></i>
+            <div class="menu">
+              <a href="{{route .Current.Header.Route}}" class="item">Index</a>
+              {{range .Current.Options}}
+                {{if .Name}}
+                  <div class="divider"></div>
+                  <div class="header">{{.Name}}</div>
+                {{end}}
+                {{range .Collection}}
+                  <a href="{{route .Route}}" class="item">{{.Name}}</a>
+                {{end}}
+              {{end}}
+            </div>
+          </div>
+        {{else}}
+          <div class="item">
+            <i class="angle double right icon"></i>{{.Current.Header.Name}}
+          </div>
+        {{end}}
+      {{end}}
+
+      {{if .Elements}}
+        <div class="ui pointing dropdown item">
+          Modules <i class="dropdown icon"></i>
+          <div class="menu">
+            <div class="header">Modules</div>
+            {{range .Elements}}
+              <a href="{{route .Route}}" class="item">{{.Name}}</a>
+            {{end}}
+          </div>
+        </div>
+      {{end}}
+      
+      <div class="right menu">
+        <div class="ui pointing dropdown item">
+          <img class="ui avatar image" src="initium.png" />
+          Account <i class="dropdown icon"></i>
+          <div class="menu">
+            <a href="{{route "auth.login"}}" class="item">Login</a>
+            <a href="" class="item">Register</a>
+          </div> 
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{if .Alerts}}
+    <div class="ui container">
+      {{range .Alerts}}
+        <div class="ui {{.Type}} message">
+          <i class="close icon"></i>
+          <div class="header">{{.Title}}</div>
+          <p>{{.Message}}</p>
+        </div>
+      {{end}}  
+    </div>
+  {{end}}
+  <!-- Initium Application header end -->

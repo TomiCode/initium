@@ -7,7 +7,7 @@ type AuthController struct {
 }
 
 func (controller* AuthController) RegisterModule() *InitiumModule {
-  return nil
+  return &InitiumModule{Title: "Authorization"}
 }
 
 func (controller* AuthController) RegisterOptions() []*InitiumModuleCategory {
@@ -33,12 +33,13 @@ func (controller *AuthController) postLogin(req *InitiumRequest) error {
   }
 
   var user, pass = req.Request.Form.Get("email"), req.Request.Form.Get("passwd")
-  
+
   err = controller.App.AuthenticateLogin(user, pass, req.Session)
   if err != nil {
     log.Println("Error occured while login:", err)
   }
 
   log.Println("Authenticate user:", user, pass)
+  req.AddAlert("success", "Authorization", "Successful loggined in. Hello again!")
   return req.Redirect(controller.App.Route("blog.index"))
 }

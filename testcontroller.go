@@ -12,13 +12,21 @@ func (controller *TestController) RegisterModule() *InitiumModule {
 
 func (controller *TestController) RegisterOptions() []*InitiumModuleCategory {
   return []*InitiumModuleCategory{
-    &InitiumModuleCategory{Title: "TestCategory", Options: []*ModuleOption{&ModuleOption{Name: "Test Option", Route: "test.opt"}}},
+    &InitiumModuleCategory{
+      Title: "TestCategory", 
+      Options: []*ModuleOption{
+        &ModuleOption{
+          Name: "Test Option", 
+          Route: "test.opt",
+        },
+      },
+    },
   }
 }
 
 func (controller *TestController) RegisterRouting() []*ControllerRoute {
   return []*ControllerRoute{
-    &ControllerRoute{uri: "/test", call: controller.index, alias: "test.index"},
+    &ControllerRoute{uri: "/test", call: controller.index, alias: "test.index", access: Permission_Auth_None},
   }
 }
 
