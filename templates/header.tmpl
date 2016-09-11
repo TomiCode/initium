@@ -71,14 +71,27 @@
       {{end}}
       
       <div class="right menu">
-        <div class="ui pointing dropdown item">
-          <img class="ui avatar image" src="initium.png" />
-          Account <i class="dropdown icon"></i>
-          <div class="menu">
-            <a href="{{route "auth.login"}}" class="item">Login</a>
-            <a href="" class="item">Register</a>
-          </div> 
-        </div>
+        {{if .User}}
+          <div class="ui pointing dropdown item">
+            <img class="ui avatar image" src="initium.png" />
+            {{.User.Name}} <i class="dropdown icon"></i>
+            <div class="menu">
+              <a href="" class="item">System settings</a>
+              <div class="divider"></div>
+              <a href="" class="item">Profile</a>
+              <a href="" class="item">Logout</a>
+            </div> 
+          </div>
+        {{else}}
+          <div class="ui pointing dropdown item">
+            <i class="user icon"></i> Account <i class="dropdown icon"></i>
+            <div class="menu">
+              <a href="{{route "auth.login"}}" class="item">Login</a>
+              <div class="divider"></div>
+              <a href="" class="item">Register</a>
+            </div> 
+          </div>
+        {{end}}
       </div>
     </div>
   </div>
