@@ -21,11 +21,11 @@ func (controller* AuthController) RegisterRouting() []*ControllerRoute {
   }
 }
 
-func (controller *AuthController) getLogin(req *InitiumRequest) error {
+func (controller *AuthController) getLogin(req *InitiumRequest, params *RequestParameters) error {
   return controller.App.RenderTemplate(req, "auth.login", nil)
 }
 
-func (controller *AuthController) postLogin(req *InitiumRequest) error {
+func (controller *AuthController) postLogin(req *InitiumRequest, params *RequestParameters) error {
   var err = req.Request.ParseForm()
   if err != nil {
     log.Println("Can not parse form:", err)

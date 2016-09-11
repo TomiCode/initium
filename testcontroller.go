@@ -1,6 +1,6 @@
 package main
 
-import "fmt"
+import "log"
 
 type TestController struct {
   App ApplicationInterface
@@ -26,11 +26,12 @@ func (controller *TestController) RegisterOptions() []*InitiumModuleCategory {
 
 func (controller *TestController) RegisterRouting() []*ControllerRoute {
   return []*ControllerRoute{
-    &ControllerRoute{uri: "/test", call: controller.index, alias: "test.index", access: Permission_Auth_None},
+    &ControllerRoute{uri: "/test/{doc}/{type}", call: controller.index, alias: "test.index", access: Permission_Auth_None},
   }
 }
 
-func (controller *TestController) index(request *InitiumRequest) error {
-  fmt.Println("Hello world")
+func (controller *TestController) index(request *InitiumRequest, params *RequestParameters) error {
+  log.Println("[TestController] My parameters:", params)
+  log.Println("[TestController] Value of 'doc':", params.GetValue("doc"))
   return nil
 }

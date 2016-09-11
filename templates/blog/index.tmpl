@@ -1,8 +1,5 @@
 {{template "header" .Header}}
 <div class="ui container">
-  {{if .Debug}}
-    {{template "development" .}}
-  {{end}}
   <div class="ui one column grid">
     {{range .Self}}
       <div class="column">

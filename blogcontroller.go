@@ -1,6 +1,6 @@
 package main
 
-import "fmt"
+import "log"
 
 type BlogController struct {
   App ApplicationInterface
@@ -35,9 +35,9 @@ func (controller *BlogController) RegisterRouting() []*ControllerRoute {
   }
 }
 
-func (controller *BlogController) index(req *InitiumRequest) error {
-  fmt.Println("Index sees params:", req.vars)
-
+func (controller *BlogController) index(req *InitiumRequest, params *RequestParameters) error {
+  log.Println("[BlogController] Parameters:", params)
+  
   var test_posts = []BlogPost{
     BlogPost{Title: "First blog entry 01", Content: "Lorem ipsum.", View: 1337, Like: 0},
     BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
@@ -56,6 +56,6 @@ func (controller *BlogController) index(req *InitiumRequest) error {
   return controller.App.RenderTemplate(req, "blog.index", test_posts)
 }
 
-func (controller* BlogController) addPost(req *InitiumRequest) error {
+func (controller *BlogController) addPost(req *InitiumRequest, params *RequestParameters) error {
   return controller.App.RenderTemplate(req, "blog.add", nil)
 }

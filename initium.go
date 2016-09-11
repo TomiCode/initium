@@ -60,13 +60,11 @@ func (permissions ControllerPermissions) Access(controller string) uint8 {
 
 type InitiumRequest struct {
   Permissions ControllerPermissions
-  Controller string
   Session ApplicationSession
   Request *http.Request
   Writer http.ResponseWriter
+  Route *RoutingCollection
   User *InitiumUser
-
-  vars map[string]string
 }
 
 func (request *InitiumRequest) Redirect(url string) error {
@@ -92,7 +90,29 @@ func (request *InitiumRequest) HandleAccess(route *RoutingCollection) error {
   return nil
 }
 
-type RequestFunction func(*InitiumRequest) error
+type InitiumParameter struct {
+  Name string
+  Value string
+}
+
+type RequestParameters struct {
+  params []*InitiumParameter
+}
+
+func (reqParams *RequestParameters) GetValue(key string) string {
+  if reqParams == nil {
+    return ""
+  }
+
+  for _, param := range reqParams.params {
+    if key == param.Name {
+      return param.Value
+    }
+  }
+  return ""
+}
+
+type RequestFunction func(*InitiumRequest, *RequestParameters) error
 
 type ControllerRoute struct {
   uri string
@@ -156,20 +176,23 @@ type InitiumModuleCategory struct {
   Options []*ModuleOption
 }
 
+type InitiumDebugInformation struct {
+  SessionId string
+  AuthToken string
+}
+
 type InitiumHeader struct {
   Current *ModuleCollection
   Elements []*ModuleOption
+
   Alerts []*InitiumAlert
+  Debug *InitiumDebugInformation
+  User *InitiumUser
 }
 
 type TemplateParameter struct {
-  Header* InitiumHeader
-  User* InitiumUser
-  SessionId string
+  Header *InitiumHeader
   Self interface{}
-
-  Debug bool
-  AuthToken string
 }
 
 type InitiumApp struct {
@@ -304,13 +327,12 @@ func (app *InitiumApp) LoadTemplates(root string) {
   log.Println("Loaded templates from path:", root)
 }
 
-func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data interface{}) error {
-  log.Println("Requesting template:", name)
+func (app *InitiumApp) RenderTemplate(request *InitiumRequest, template string, data interface{}) error {
+  log.Println("Requesting template:", template)
+  var appHeader* InitiumHeader = &InitiumHeader{User: request.User}
 
-  var appHeader* InitiumHeader = &InitiumHeader{}
   for _, module := range app.modules {
-    log.Println("Module:", module.Controller, "Request:", request.Controller)
-    if module.Controller == request.Controller {
+    if module.Controller == request.Route.controller {
       appHeader.Current = &ModuleCollection{Header: module.Header}
 
       for _, category := range module.Options {
@@ -330,24 +352,19 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, name string, data
       }
     }
   }
+
   appHeader.Alerts = request.PullAlerts()
-
-  var templateParam = &TemplateParameter{
-    Header: appHeader,
-    User: request.User,
-    Self: data,
-
-    SessionId: request.Session.GetSessionId(),
-    Debug: app.Debug,
+  if app.Debug {
+    appHeader.Debug = &InitiumDebugInformation{SessionId: request.Session.GetSessionId()}
+    if request.User != nil {
+      appHeader.Debug.AuthToken = request.User.AuthToken
+    }
   }
 
-  if request.User != nil {
-    templateParam.AuthToken = request.User.AuthToken
-  }
-
-  var err = app.templates.ExecuteTemplate(request.Writer, name, templateParam)
+  var templateParam = &TemplateParameter{Header: appHeader, Self: data}
+  var err = app.templates.ExecuteTemplate(request.Writer, template, templateParam)
   if err != nil {
-    log.Println("Error occurred while", name, "render:", err);
+    log.Println("Error occurred while", template, "render:", err);
     return CreateError("Template render error", 104)
   }
   return nil
@@ -438,51 +455,51 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
   for _, route := range app.routes {
     if route.expr.MatchString(r.URL.Path) && ((route.method != "" && route.method == r.Method) || (route.method == "" && r.Method == "GET")) {
-      var params = make(map[string]string, 0)
+      // var params = make(map[string]string, 0)
       var uriScheme = route.expr.FindStringSubmatch(r.URL.Path)
       if uriScheme[0] != r.URL.Path {
         continue;
       }
 
+      var requestParam *RequestParameters = nil
       if len(route.params) > 0 {
-        for value := range uriScheme[1:] {
-          log.Println("Parsing parameters", value)
-          log.Println(params)
-          params[route.params[value]] = uriScheme[value + 1]
+        requestParam = &RequestParameters{}
+        for value, param := range uriScheme[1:] {
+          if param != "" {
+            requestParam.params = append(requestParam.params, &InitiumParameter{Name: route.params[value], Value: param})
+          }
         }
       }
-      log.Println(params)
+      log.Println("Current parameters:", requestParam)
 
-      for param, val := range r.URL.Query() {
-        params[param] = val[0];
-      }
-
-      var requestType = &InitiumRequest{Request: r, Writer: w, Controller: route.controller, vars: params}
+      // for param, val := range r.URL.Query() {
+      //   params[param] = val[0];
+      // }
+      var request = &InitiumRequest{Request: r, Writer: w, Route: route}
       var err error = nil
 
-      err = app.sessions.StartSession(requestType)
+      err = app.sessions.StartSession(request)
       if err != nil {
         log.Println("Session broken, reason:", err)
         break
       }
 
-      err = app.sessions.SessionAuthenticate(requestType)
+      err = app.sessions.SessionAuthenticate(request)
       if err != nil {
         log.Println("Authorization failed, reason:", err)
         break
       }
 
-      err = requestType.HandleAccess(route)
+      err = request.HandleAccess(route)
       if err != nil {
         log.Println("Permission error:", err)
         break
       }
+      log.Println("Routing handled with controller:", route.controller)
 
-      log.Println("Routing handled with controller:", requestType.Controller)
-
-      err = route.handler(requestType)
+      err = route.handler(request, requestParam)
       if err != nil {
-        app.RenderTemplate(requestType, "error", err)
+        app.RenderTemplate(request, "error", err)
       }
       break
     }
