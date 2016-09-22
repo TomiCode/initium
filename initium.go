@@ -4,7 +4,7 @@ import "regexp"
 import "strings"
 import "log"
 import "net/http"
-// import "reflect"
+
 import "html/template"
 import "os"
 import "fmt"
@@ -13,11 +13,10 @@ import "io/ioutil"
 import "path/filepath"
 import "runtime"
 import "time"
+
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
 
-/* Initium permissions. Those values are valid in header entries as of user permissions. */
-/* With the difference, that in the header entry None, will be shown to everyone. */
 const (
   Permission_None       = 0x00
   Permission_Auth_None  = 0x10
@@ -26,6 +25,15 @@ const (
   Permission_Auth_Admin = 0x14
   Permission_Auth_Owner = 0x18
   Permission_NoAuth     = 0x20
+)
+
+const (
+  RequestType_NORMAL = 0x00
+  RequestType_FORMS  = 0x01
+  RequestType_JSON   = 0x02
+
+  /* Authorization needs to be different. */
+  RequestType_API    = 0x04
 )
 
 
@@ -49,7 +57,7 @@ type PermissionNode struct {
 
 type ControllerPermissions []*PermissionNode
 
-func (permissions ControllerPermissions) Access(controller string) uint8 {
+func (permissions ControllerPermissions) Value(controller string) uint8 {
   for _, permission := range permissions {
     if controller == permission.Controller {
       return permission.Value
@@ -72,22 +80,22 @@ func (request *InitiumRequest) Redirect(url string) error {
   return nil
 }
 
-func (request *InitiumRequest) HandleAccess(route *RoutingCollection) error {
-  if route.permission == Permission_NoAuth && request.User != nil {
-    return CreateError("Only for unauthorized users.", 405)
+func (request *InitiumRequest) HasAccess(route *RoutingCollection) bool {
+  if request.Route.permission == Permission_NoAuth && request.User != nil {
+    return false
   }
   
-  if (route.permission & Permission_Auth_None) == Permission_Auth_None {
+  if (request.Route.permission & Permission_Auth_None) == Permission_Auth_None {
     if request.User == nil {
-      return CreateError("Not authorized.", 405)
+      return false
     }
     
-    var currentPermission uint8 = request.Permissions.Access(route.controller)
+    var currentPermission uint8 = request.Permissions.Value(route.controller)
     if (route.permission & currentPermission) != currentPermission {
-      return CreateError("No privileges", 405)
+      return false
     }
   }
-  return nil
+  return true
 }
 
 type InitiumParameter struct {
@@ -120,6 +128,7 @@ type ControllerRoute struct {
   access uint8
   method string
   call RequestFunction
+  mode uint8
 }
 
 type InitiumController interface {
@@ -138,6 +147,7 @@ type ApplicationInterface interface {
 }
 
 type RoutingCollection struct {
+  mode uint8
   expr *regexp.Regexp
   method string
   params []string
@@ -338,7 +348,7 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, template string, 
       for _, category := range module.Options {
         var categoryCollection = &ModuleCategoryCollection{Name: category.Name}
         for _, option := range category.Collection {
-          if option.Route != "" && request.HandleAccess(app.routes[option.Route]) == nil {
+          if option.Route != "" && request.HasAccess(app.routes[option.Route]) {
             categoryCollection.Collection = append(categoryCollection.Collection, option)  
           }
         }
@@ -347,7 +357,7 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, template string, 
         }
       }
     } else {
-      if module.Header.Route != "" && request.HandleAccess(app.routes[module.Header.Route]) == nil {
+      if module.Header.Route != "" && request.HasAccess(app.routes[module.Header.Route]) {
         appHeader.Elements = append(appHeader.Elements, module.Header)
       }
     }
@@ -400,6 +410,7 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
     }
 
     var routingTable = &RoutingCollection{
+      mode: v.mode,
       expr: expr,
       params: params,
       method: v.method,
@@ -445,64 +456,72 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
   log.Println("Controller registered:", controllerAlias)
 }
 
+func (app *InitiumApp) ProcessRouting(req *InitiumRequest) (*RequestParameters, error) {
+  for _, route := range app.routes {
+    if ((route.method != "" && route.method == req.Request.Method) || (route.method == "" && req.Request.Method == "GET")) && route.expr.MatchString(req.Request.URL.Path) {
+      uriScheme := route.expr.FindStringSubmatch(req.Request.URL.Path)
+      if uriScheme[0] != req.Request.URL.Path {
+        continue
+      }
+      req.Route = route
+
+      if len(route.params) > 0 {
+        var reqParams = &RequestParameters{}
+        for index, value := range uriScheme[1:] {
+          if value == "" {
+            continue
+          }
+          reqParams.params = append(reqParams.params, &InitiumParameter{Name: route.params[index], Value: value})
+        }
+
+        return reqParams, nil
+      } else {
+        return nil, nil
+      }
+    }
+  }
+  return nil, CreateError("No route for this address.", 505)
+}
+
 func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+  
   if r.Method == "GET" && strings.Contains(r.URL.Path, ".") {
     log.Print("File request ", r.Method, ": ", r.URL.Path)
     http.ServeFile(w, r, "public" + r.URL.Path)
     return
   }
+
   log.Print("Router request ", r.Method, ": ", r.URL.Path)
+  var request = &InitiumRequest{Writer: w, Request: r}
 
-  for _, route := range app.routes {
-    if route.expr.MatchString(r.URL.Path) && ((route.method != "" && route.method == r.Method) || (route.method == "" && r.Method == "GET")) {
-      // var params = make(map[string]string, 0)
-      var uriScheme = route.expr.FindStringSubmatch(r.URL.Path)
-      if uriScheme[0] != r.URL.Path {
-        continue;
-      }
+  var parameters, err = app.ProcessRouting(request)
+  if err != nil {
+    log.Println("Error occured:", err);
+    return
+  }
 
-      var requestParam *RequestParameters = nil
-      if len(route.params) > 0 {
-        requestParam = &RequestParameters{}
-        for value, param := range uriScheme[1:] {
-          if param != "" {
-            requestParam.params = append(requestParam.params, &InitiumParameter{Name: route.params[value], Value: param})
-          }
-        }
-      }
-      log.Println("Current parameters:", requestParam)
+  err = app.sessions.StartSession(request)
+  if err != nil {
+    log.Println("Session error:", err)
+    return
+  }
 
-      // for param, val := range r.URL.Query() {
-      //   params[param] = val[0];
-      // }
-      var request = &InitiumRequest{Request: r, Writer: w, Route: route}
-      var err error = nil
+  err = app.sessions.SessionAuthenticate(request)
+  if err != nil {
+    log.Println("Session authenticate error:", err)
+    return
+  }
 
-      err = app.sessions.StartSession(request)
-      if err != nil {
-        log.Println("Session broken, reason:", err)
-        break
-      }
+  if !request.HasAccess(request.Route) {
+    log.Println("Session has no permissions to view this route.")
+    return
+  }
 
-      err = app.sessions.SessionAuthenticate(request)
-      if err != nil {
-        log.Println("Authorization failed, reason:", err)
-        break
-      }
-
-      err = request.HandleAccess(route)
-      if err != nil {
-        log.Println("Permission error:", err)
-        break
-      }
-      log.Println("Routing handled with controller:", route.controller)
-
-      err = route.handler(request, requestParam)
-      if err != nil {
-        app.RenderTemplate(request, "error", err)
-      }
-      break
-    }
+  log.Println("Starting handler from controller:", request.Route.controller)
+  err = request.Route.handler(request, parameters)
+  if err != nil {
+    log.Println("Handler error:", err)
+    return
   }
 }
 
