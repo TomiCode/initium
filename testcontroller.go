@@ -33,5 +33,5 @@ func (controller *TestController) RegisterRouting() []*ControllerRoute {
 func (controller *TestController) index(request *InitiumRequest, params *RequestParameters) error {
   log.Println("[TestController] My parameters:", params)
   log.Println("[TestController] Value of 'doc':", params.GetValue("doc"))
-  return nil
+  return controller.App.RenderTemplate(request, "test.index", nil)
 }

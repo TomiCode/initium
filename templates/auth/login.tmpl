@@ -1,7 +1,7 @@
 {{template "header" .Header}}
 <div class="ui container">
   <div class="ui segment">
-    <form class="ui form" method="POST">
+    <form class="ui form" method="POST" data-handler="auth.login.form">
       <div class="field">
         <label>Email</label>
         <input name="email" placeholder="Email address" type="text">
@@ -16,7 +16,7 @@
           <label>Nothing</label>
         </div>
       </div>
-      <button class="ui button" type="submit">Login</button>
+      <button id="abc" class="ui button" type="submit">Login</button>
     </form>
   </div>
 </div>

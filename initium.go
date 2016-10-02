@@ -46,7 +46,7 @@ func CreateError(message string, code int) *InitiumError {
   return &InitiumError{message: message, code: code}
 }
 
-func (err* InitiumError) Error() string {
+func (err *InitiumError) Error() string {
   return err.message
 }
 
@@ -81,11 +81,16 @@ func (request *InitiumRequest) Redirect(url string) error {
 }
 
 func (request *InitiumRequest) HasAccess(route *RoutingCollection) bool {
-  if request.Route.permission == Permission_NoAuth && request.User != nil {
+  if route == nil {
+    log.Println("Routing collection is nil. Can not access permissions.")
+    return false
+  }
+
+  if route.permission == Permission_NoAuth && request.User != nil {
     return false
   }
   
-  if (request.Route.permission & Permission_Auth_None) == Permission_Auth_None {
+  if (route.permission & Permission_Auth_None) == Permission_Auth_None {
     if request.User == nil {
       return false
     }
@@ -140,6 +145,7 @@ type InitiumController interface {
 type ApplicationInterface interface {
   AuthenticateLogin (string, string, ApplicationSession) error
   RenderTemplate(*InitiumRequest, string, interface{}) error
+  RenderData(*InitiumRequest, interface{}) error
   GetDatabase() (*sql.DB)
 
   Route(string, ...interface{}) string
@@ -339,7 +345,7 @@ func (app *InitiumApp) LoadTemplates(root string) {
 
 func (app *InitiumApp) RenderTemplate(request *InitiumRequest, template string, data interface{}) error {
   log.Println("Requesting template:", template)
-  var appHeader* InitiumHeader = &InitiumHeader{User: request.User}
+  var appHeader *InitiumHeader = &InitiumHeader{User: request.User}
 
   for _, module := range app.modules {
     if module.Controller == request.Route.controller {
@@ -484,7 +490,6 @@ func (app *InitiumApp) ProcessRouting(req *InitiumRequest) (*RequestParameters, 
 }
 
 func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-  
   if r.Method == "GET" && strings.Contains(r.URL.Path, ".") {
     log.Print("File request ", r.Method, ": ", r.URL.Path)
     http.ServeFile(w, r, "public" + r.URL.Path)
