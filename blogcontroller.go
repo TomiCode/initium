@@ -3,7 +3,7 @@ package main
 import "log"
 
 type BlogController struct {
-  App ApplicationInterface
+  ApplicationInterface
 }
 
 type BlogPost struct {
@@ -53,9 +53,9 @@ func (controller *BlogController) index(req *InitiumRequest, params *RequestPara
     BlogPost{Title: "Testing golang templating systems", Content: "Lorem ipsum lorem ipsum lorem ipsum", View: 3},
   }
   
-  return controller.App.RenderTemplate(req, "blog.index", test_posts)
+  return controller.RenderTemplate(req, "blog.index", test_posts)
 }
 
 func (controller *BlogController) addPost(req *InitiumRequest, params *RequestParameters) error {
-  return controller.App.RenderTemplate(req, "blog.add", nil)
+  return controller.RenderTemplate(req, "blog.add", nil)
 }

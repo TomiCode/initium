@@ -3,12 +3,7 @@ package main
 import "log"
 
 type AuthController struct {
-  App ApplicationInterface
-}
-
-type ResponseJSON struct {
-  Success bool `json:"success"`
-  Error string `json:"error,omitempty"`
+  ApplicationInterface
 }
 
 func (controller* AuthController) RegisterModule() *InitiumModule {
@@ -28,7 +23,7 @@ func (controller* AuthController) RegisterRouting() []*ControllerRoute {
 }
 
 func (controller *AuthController) getLogin(req *InitiumRequest, params *RequestParameters) error {
-  return controller.App.RenderTemplate(req, "auth.login", nil)
+  return controller.RenderTemplate(req, "auth.login", nil)
 }
 
 func (controller *AuthController) postLogin(req *InitiumRequest, params *RequestParameters) error {
@@ -40,38 +35,38 @@ func (controller *AuthController) postLogin(req *InitiumRequest, params *Request
 
   var user, pass = req.Request.Form.Get("email"), req.Request.Form.Get("passwd")
 
-  err = controller.App.AuthenticateLogin(user, pass, req.Session)
+  err = controller.AuthenticateLogin(user, pass, req.Session)
   if err != nil {
     log.Println("Error occured while login:", err)
   }
 
   log.Println("Authenticate user:", user, pass)
   req.AddAlert("success", "Authorization", "Successful loggined in. Hello again!")
-  return req.Redirect(controller.App.Route("blog.index"))
+  return req.Redirect(controller.Route("blog.index"))
 }
 
-func (controller *AuthController) loginForm(req *InitiumRequest, params *RequestParameters) error {
+func (auth *AuthController) loginForm(req *InitiumRequest, params *RequestParameters) error {
   var response = InitiumHandler{}
 
   var err = req.Request.ParseForm()
   if err != nil {
     log.Println("Error while form parse:", err)
-    return controller.App.RenderData(req, response)
+    return auth.RenderData(req, response)
   }
   log.Println(req.Request.Form);
 
   var user, pass = req.Request.Form.Get("email"), req.Request.Form.Get("passwd")
-  err = controller.App.AuthenticateLogin(user, pass, req.Session)
+  err = auth.AuthenticateLogin(user, pass, req.Session)
   if err != nil {
     log.Println("Can not authorize user.")
     response.Error = "There was an error while authorizing your session. Seems, that You may have entered a wrong username or password."
-    return controller.App.RenderData(req, response)
+    return auth.RenderData(req, response)
   }
 
   log.Println("Authorized user:", user)
   req.AddAlert("success", "Authorization", "Successful loggined in. Hello again!")
 
   response.Success = true
-  response.Redirect = "blog.index"
-  return controller.App.RenderData(req, response)
+  response.Redirect = auth.Route("blog.index")
+  return auth.RenderData(req, response)
 }
