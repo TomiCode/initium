@@ -17,13 +17,24 @@ $.iforms = $.fn.iforms = function(parameters) {
     var
       settings = (parameters !== undefined && $.isPlainObject($parameters)) 
         ? $.extend(true, {}, $.fn.iforms.settings, parameters) : $.fn.iforms.settings,
+
       element = this,
       $module = $(this),
-      module;
+      module,
+
+      requestTime,
+      bindType = $module.data("binding") || false,
+      $context = (bindType && bindType == 'form') ? $module.closest('form') : $module;
+    ;
+
+    if($context.length == 0) {
+      console.warn("Invalid context for element:", $module);
+      $context = $module;
+    }
 
     module = {
       initialize: function() {
-        console.log("Initialized initium.forms:", $module);
+        console.log("Initialized initium.forms:", $module, "binding type:", bindType);
         module.attach();
       },
       destroy: function() {
@@ -46,8 +57,9 @@ $.iforms = $.fn.iforms = function(parameters) {
       },
       handle: function() { 
         console.log("Handle module request.");
-        module.send();
-        module.remove.message();
+        if(!module.remove.message()) {
+          module.send();
+        }
       },
       state: {
         loading: function() {
@@ -56,6 +68,11 @@ $.iforms = $.fn.iforms = function(parameters) {
         disabled: function() {
           return $module.hasClass("disabled");
         }
+      },
+      is: {
+        form: function() {
+          return (bindType && bindType == 'form');
+        },
       },
       get: {
         event: function() {
@@ -100,8 +117,8 @@ $.iforms = $.fn.iforms = function(parameters) {
           return address;
         },
         content: function() {
-          if($module.is('form')) {
-            return $module.serialize();
+          if(module.is.form()) {
+            return $context.serialize();
           }
           return undefined;
         }
@@ -114,6 +131,19 @@ $.iforms = $.fn.iforms = function(parameters) {
         } 
         else {
           console.log("Existent xhr request is already pending!");
+        }
+      },
+      response: {
+        handle: function(data) {
+          module.remove.loading();
+          if(data.success !== undefined && !data.success) {
+            if(data.error !== undefined) {
+              module.set.message.error(data.error);
+            }
+            else {
+              module.set.message.error("An error occurred. Please try again.");
+            }
+          }
         }
       },
       request: {
@@ -141,20 +171,19 @@ $.iforms = $.fn.iforms = function(parameters) {
         },
         always: function(res, status, obj) {
           console.log("Ajax completed:", status);
-          setTimeout(function(){
-            module.remove.loading();
-          }, 500);
+          // module.remove.loading();
+          // setTimeout(function(){
+            
+          // }, 500);
         },
         done: function(data, status, xhr) {
-          console.log("Ajax success:", status, "data:", data);
-          if(data.success !== undefined && !data.success) {
-            if(data.error !== undefined) {
-              module.set.message.error(data.error);
-            }
-            else {
-              module.set.message.error("An error occurred. Please try again.");
-            }
-          }
+          var 
+            delay = (settings.delay - (new Date().getTime() - requestTime));
+
+          delay = (delay > 0 ? delay : 0);
+
+          console.log("Ajax success:", status, "data:", data, "delay:", delay);
+          setTimeout(function(){ module.response.handle(data); }, delay);
         },
         fail: function(xhr, status, error) {
           console.log("Ajax failed:", status, "error:", error);
@@ -163,6 +192,7 @@ $.iforms = $.fn.iforms = function(parameters) {
       set: {
         loading: function() {
           console.log("Adding loading class into object..");
+          requestTime = new Date().getTime();
           $module.addClass("loading");
         },
         disabled: function() {
@@ -176,12 +206,18 @@ $.iforms = $.fn.iforms = function(parameters) {
         message: {
           error: function(content) {
             console.log("Adding error message into module:", content);
-            if($module.is('form')) {
+            module.message = true;
+
+            if(module.is.form()) {
               console.log("Module is a form. Creating error message element.");
-              $module.append(
-                $('<div class="ui message error">')
-                  .html(content)
-                  .transition("fade"));
+              
+              var $message = $context.find('.ui.error');
+              console.log("Current message window:", $message);
+              if ($message.length == 0) {
+                $message = $('<div class="ui message error">');
+                $context.prepend($message);
+              }
+              $message.html(content).transition('fade');
             }
           }
         }
@@ -200,12 +236,17 @@ $.iforms = $.fn.iforms = function(parameters) {
           $module.removeClass("error");
         },
         message: function() {
-          if($module.is('form')) {
-            var $message = $module.find(".ui.error");
-            if ($message !== undefined) {
-              $message.transition('fade');
+          if(module.message) {
+            if(module.is.form()) {
+              var $message = $context.find(".ui.error");
+              if ($message !== undefined) {
+                $message.transition('fade', module.handle);
+              }
             }
+            module.message = false;
+            return true;
           }
+          return false;
         }
       }
     };
@@ -218,7 +259,7 @@ $.iforms = $.fn.iforms = function(parameters) {
 $.iforms.settings = {
 
   routes: {},
-
+  delay: 1000,
 };
 
 })( jQuery, window, document );
