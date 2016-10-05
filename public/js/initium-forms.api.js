@@ -14,7 +14,6 @@ var window = (typeof window != 'undefined' && window.Math == Math)
 $.iforms = $.fn.iforms = function(parameters) {
 
   $(this).each(function(){
-
     var
       settings = (parameters !== undefined && $.isPlainObject($parameters)) 
         ? $.extend(true, {}, $.fn.iforms.settings, parameters) : $.fn.iforms.settings,
@@ -47,7 +46,8 @@ $.iforms = $.fn.iforms = function(parameters) {
       },
       handle: function() { 
         console.log("Handle module request.");
-        module.xhr = module.request.create();
+        module.send();
+        module.remove.message();
       },
       state: {
         loading: function() {
@@ -109,9 +109,12 @@ $.iforms = $.fn.iforms = function(parameters) {
       send: function() {
         if(!module.state.loading()) {
           console.log("Creating xhr reqiest.");
+          module.set.loading();
           module.xhr = module.request.create();
+        } 
+        else {
+          console.log("Existent xhr request is already pending!");
         }
-        console.log("Existent xhr request is already pending!");
       },
       request: {
         create: function() {
@@ -126,20 +129,34 @@ $.iforms = $.fn.iforms = function(parameters) {
               url       : url,
               data      : data,
               method    : "POST",
-              completed : module.request.completed,
-              error     : module.request.error,
-              success   : module.request.success,
-            });
+              // completed : module.request.completed,
+              // error     : module.request.error,
+              // success   : module.request.success,
+            })
+              .always(module.request.always)
+              .done(module.request.done)
+              .fail(module.request.fail);
           }
           return xhr;
         },
-        completed: function(xhr, status) {
+        always: function(res, status, obj) {
           console.log("Ajax completed:", status);
+          setTimeout(function(){
+            module.remove.loading();
+          }, 500);
         },
-        success: function(data, status, xhr) {
+        done: function(data, status, xhr) {
           console.log("Ajax success:", status, "data:", data);
+          if(data.success !== undefined && !data.success) {
+            if(data.error !== undefined) {
+              module.set.message.error(data.error);
+            }
+            else {
+              module.set.message.error("An error occurred. Please try again.");
+            }
+          }
         },
-        error: function(xhr, status, error) {
+        fail: function(xhr, status, error) {
           console.log("Ajax failed:", status, "error:", error);
         }
       },
@@ -155,6 +172,18 @@ $.iforms = $.fn.iforms = function(parameters) {
         error: function() {
           console.log("Adding error class into object..");
           $module.addClass("error");
+        },
+        message: {
+          error: function(content) {
+            console.log("Adding error message into module:", content);
+            if($module.is('form')) {
+              console.log("Module is a form. Creating error message element.");
+              $module.append(
+                $('<div class="ui message error">')
+                  .html(content)
+                  .transition("fade"));
+            }
+          }
         }
       },
       remove: {
@@ -169,6 +198,14 @@ $.iforms = $.fn.iforms = function(parameters) {
         error: function() {
           console.log("Removing error class..");
           $module.removeClass("error");
+        },
+        message: function() {
+          if($module.is('form')) {
+            var $message = $module.find(".ui.error");
+            if ($message !== undefined) {
+              $message.transition('fade');
+            }
+          }
         }
       }
     };
