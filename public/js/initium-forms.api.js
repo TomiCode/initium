@@ -57,9 +57,10 @@ $.iforms = $.fn.iforms = function(parameters) {
       },
       handle: function() { 
         console.log("Handle module request.");
-        if(!module.remove.message()) {
+        module.set.loading();
+        // if(!module.remove.message()) {
           module.send();
-        }
+        // }
       },
       state: {
         loading: function() {
@@ -89,7 +90,7 @@ $.iforms = $.fn.iforms = function(parameters) {
         },
         routing: function(data) {
           var
-            handler = $module.data('handler')  || false,
+            handler = $context.data('handler') || false,
             address = settings.routes[handler] || false,
             handlerParameters;
 
@@ -126,7 +127,6 @@ $.iforms = $.fn.iforms = function(parameters) {
       send: function() {
         if(!module.state.loading()) {
           console.log("Creating xhr reqiest.");
-          module.set.loading();
           module.xhr = module.request.create();
         } 
         else {
@@ -142,6 +142,13 @@ $.iforms = $.fn.iforms = function(parameters) {
             }
             else {
               module.set.message.error("An error occurred. Please try again.");
+            }
+          }
+          else if(data.success === true) {
+            module.remove.message();
+            $module.addClass("positive");
+            if(data.redirect !== undefined) {
+              window.location.href = data.redirect;
             }
           }
         }
@@ -213,11 +220,14 @@ $.iforms = $.fn.iforms = function(parameters) {
               
               var $message = $context.find('.ui.error');
               console.log("Current message window:", $message);
+
               if ($message.length == 0) {
                 $message = $('<div class="ui message error">');
                 $context.prepend($message);
+                $message.html(content).transition('fade');
+              } else {
+                $message.html(content).transition('shake');
               }
-              $message.html(content).transition('fade');
             }
           }
         }
@@ -240,7 +250,7 @@ $.iforms = $.fn.iforms = function(parameters) {
             if(module.is.form()) {
               var $message = $context.find(".ui.error");
               if ($message !== undefined) {
-                $message.transition('fade', module.handle);
+                $message.transition('fade');
               }
             }
             module.message = false;
