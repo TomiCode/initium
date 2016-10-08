@@ -21,6 +21,14 @@ body { }
   }
 }
 
+.ui.notification.container {
+  position: fixed;
+  right: 20px;
+  top: 20px;
+  z-index: 10000000;
+  width: 320px;
+}
+
 .ui.general.menu {
   transition: 0.4s ease box-shadow;
 }

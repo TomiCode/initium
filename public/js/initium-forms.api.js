@@ -11,6 +11,52 @@ var window = (typeof window != 'undefined' && window.Math == Math)
   ? window : (typeof self != 'undefined' && self.Math == Math)
     ? self : Function('return this')();
 
+
+$.imsg = $.fn.imsg = function(parameters) {
+  $(this).each(function() {
+    var
+      $module = $(this),
+      element = this,
+      module;
+
+    module = {
+      init: function() {
+        if($module.css('display') == 'none') {
+          $module.transition('fade');
+        }
+        $module.on('mouseenter', module.mouse.enter);
+        $module.on('mouseleave', module.mouse.leave);
+
+        module.timer = setTimeout(module.destroy, 3500);
+      },
+      started: function() {
+        return module.timer || false;
+      },
+      animate: function() {
+        return module.animating || false;
+      },
+      mouse: {
+        enter: function() {
+          clearTimeout(module.timer);
+          module.timer = false;
+          $module.transition('pulse');
+        },
+        leave: function() {
+          if(!module.timer) {
+            module.timer = setTimeout(module.destroy, 2000);
+          }
+        }
+      },
+      destroy: function() {
+        $module.transition('fade', function(){
+          $module.remove();
+        });
+      }
+    }
+    module.init();
+  });
+}
+
 $.iforms = $.fn.iforms = function(parameters) {
 
   $(this).each(function(){
@@ -24,7 +70,9 @@ $.iforms = $.fn.iforms = function(parameters) {
 
       requestTime,
       bindType = $module.data("binding") || false,
-      $context = (bindType && bindType == 'form') ? $module.closest('form') : $module;
+      $context = (bindType && bindType == 'form') ? $module.closest('form') : $module,
+
+      eventSuffix = '.' + settings.namespace + '.iforms'
     ;
 
     if($context.length == 0) {
@@ -46,7 +94,7 @@ $.iforms = $.fn.iforms = function(parameters) {
           event = module.get.event();
 
         if(event) {
-          $module.on(event, module.event);
+          $module.on(event + eventSuffix, module.event);
         }
       },
       event: function(event) {
@@ -57,10 +105,13 @@ $.iforms = $.fn.iforms = function(parameters) {
       },
       handle: function() { 
         console.log("Handle module request.");
-        module.set.loading();
-        // if(!module.remove.message()) {
+        if(module.validate()) {
+          module.set.loading();
           module.send();
-        // }
+        }
+        else {
+          console.log("Validator errors, fix inserted values!");
+        }
       },
       state: {
         loading: function() {
@@ -74,6 +125,74 @@ $.iforms = $.fn.iforms = function(parameters) {
         form: function() {
           return (bindType && bindType == 'form');
         },
+      },
+      validate: function() {
+        if(!module.is.form()) {
+          return true;
+        }
+
+        var
+          $inputs = $context.find('input[data-validator]'),
+          $fields = $context.find('.field'),
+          fieldsValid = true
+        ;
+
+        $inputs.each(function(){
+          var
+            $field = $(this),
+            $fieldGroup = $field.closest($fields),
+            type = $field.data('validator'),
+            field,
+
+            $prompt
+          ;
+
+          field = {
+            validate: function() {
+              if(!field.test()) {
+                $field.on('input.initium', field.change);
+                $fieldGroup.addClass("error");
+                field.create.prompt("Invalid value!");
+                field.failed = true;
+
+                fieldsValid = false;
+              }
+            },
+            test: function() {
+              return false;
+            },
+            error: function() {
+              return field.failed || false;
+            },
+            change: function() {
+              console.log("Error input onChange called.");
+              $field.off('input.initium');
+              if(field.error()) {
+                $fieldGroup.removeClass('error');
+                field.failed = false;
+
+                $prompt.transition("scale out", function(){
+                  $prompt.remove();
+                });
+              }
+            },
+            template: {
+              prompt: function(message) {
+                return $('<div/>').addClass('ui basic red pointing prompt label').html(message);
+              }
+            },
+            create: {
+              prompt: function(msg) {
+                $prompt = field.template.prompt(msg);
+                $prompt.appendTo($fieldGroup);
+
+                $prompt.transition('scale in');
+              }
+            }
+          }
+          field.validate();
+        });
+        return fieldsValid;
       },
       get: {
         event: function() {
@@ -136,19 +255,28 @@ $.iforms = $.fn.iforms = function(parameters) {
       response: {
         handle: function(data) {
           module.remove.loading();
-          if(data.success !== undefined && !data.success) {
+          if(data.success === false) {
+            $module.addClass('disabled');
             if(data.error !== undefined) {
               module.set.message.error(data.error);
             }
             else {
               module.set.message.error("An error occurred. Please try again.");
             }
+            setTimeout(function(){
+              $module.removeClass('disabled');
+              // module.remove.message();
+            }, (data.error !== undefined) ? 2100 : 1201 );
           }
           else if(data.success === true) {
             module.remove.message();
             $module.addClass("positive");
+            
             if(data.redirect !== undefined) {
-              window.location.href = data.redirect;
+              $module.addClass("loading");
+              setTimeout(function(){
+                window.location.href = data.redirect;
+              }, 500);
             }
           }
         }
@@ -219,15 +347,12 @@ $.iforms = $.fn.iforms = function(parameters) {
               console.log("Module is a form. Creating error message element.");
               
               var $message = $context.find('.ui.error');
-              console.log("Current message window:", $message);
-
               if ($message.length == 0) {
-                $message = $('<div class="ui message error">');
+                $message = $('<div class="ui message error" style="display: none;">');
                 $context.prepend($message);
-                $message.html(content).transition('fade');
-              } else {
-                $message.html(content).transition('shake');
+                
               }
+              $message.html(content).transition('fade in');
             }
           }
         }
@@ -267,7 +392,7 @@ $.iforms = $.fn.iforms = function(parameters) {
 };
 
 $.iforms.settings = {
-
+  namespace: "initium",
   routes: {},
   delay: 1000,
 };

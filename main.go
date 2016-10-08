@@ -14,7 +14,7 @@ func main() {
 
   app.LoadTemplates("templates")
 
-  app.RegisterController(&AuthController{app})
+  app.RegisterController(&AuthController{app,0})
   app.RegisterController(&BlogController{app})
   app.RegisterController(&TestController{app})
 
