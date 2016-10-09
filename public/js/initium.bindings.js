@@ -34,14 +34,76 @@ $.initium = $.fn.initium = {
   }
 };
 
-/* jQuery function to bind buttons with the Initium Handler Module. */
-$.initium.bind = $.fn.initium.bind = function(parameters) {
-  $(this).each(function() {
-    var
-      core = $.initium.core,
-      settings = (parameters !== undefined && $.isPlainObject(parameters)) ?
+$.initium.validate = $.fn.initium.validate = function(parameters) {
+  var
+    core = $.initium.core,
+    settings = (parameters !== undefined && $.isPlainObject(parameters)) ?
         $.extend(true, {}, $.initium.settings, parameters) : $.initium.settings,
 
+    $fields = $(this),
+    success = true;
+
+  $fields.each(function(){
+    var
+      element = this,
+      $field = $(this),
+      field,
+
+      validator = $.initium.validators[$field.data(settings.data.validator)] || false;
+
+    field = {
+      initialize: function() {
+        if(!validator) {
+          core.warn("Validator not declared for this field:", $field);
+          return;
+        }
+        core.log("Initialized field verification:", $field);
+      },
+      input: function() {
+
+      },
+      checkbox: function() {
+
+      },
+      dropdown: function() {
+
+      },
+      verificate: function() {
+        if(field.input()) {
+
+        }
+        else if(field.checkbox()) {
+
+        }
+        else if(field.dropdown()) {
+
+        }
+      },
+      error: function() {
+        core.log("Error occurred while field validation.");
+        if(success) {
+          success = false;
+        }
+      }
+    };
+    field.initialize();
+  });
+
+  /* Return the validator result. */
+  return success;
+};
+
+/* jQuery function to bind buttons with the Initium Handler Module. */
+$.initium.bind = $.fn.initium.bind = function(parameters) {
+  var 
+    core = $.initium.core,
+    settings = (parameters !== undefined && $.isPlainObject(parameters)) ?
+        $.extend(true, {}, $.initium.settings, parameters) : $.initium.settings,
+
+    $modules = $(this);
+
+  $modules.each(function() {
+    var
       element = this,
       $module = $(this),
       module;
@@ -60,13 +122,19 @@ $.initium.bind = $.fn.initium.bind = function(parameters) {
 };
 
 /* Initium Handler routing table. */
-$.initium.routing = {};
+$.initium.routes = {};
+
+/* Field validators. */
+$.initium.validators = {};
 
 /* Binding default settings. */
 $.initium.settings = {
-  
   debug: true,
 
+  /* Validator type field. */
+  data: {
+    validator: "validator"
+  }
 };
 
 })( jQuery, window, document );

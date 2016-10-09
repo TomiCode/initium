@@ -142,6 +142,7 @@ $.iforms = $.fn.iforms = function(parameters) {
             $field = $(this),
             $fieldGroup = $field.closest($fields),
             type = $field.data('validator'),
+            validator = $.iforms.validators[type],
             field,
 
             $prompt
@@ -152,13 +153,33 @@ $.iforms = $.fn.iforms = function(parameters) {
               if(!field.test()) {
                 $field.on('input.initium', field.change);
                 $fieldGroup.addClass("error");
-                field.create.prompt("Invalid value!");
+                if(validator.error !== undefined) {
+                  field.create.prompt(validator.error);
+                }
+                else {
+                  field.create.prompt("Invalid value!");
+                }
+                
                 field.failed = true;
-
                 fieldsValid = false;
               }
             },
             test: function() {
+              var 
+                count = $field.val().length;
+
+              if(validator !== undefined) {
+                if(validator.min !== undefined && validator.min > count) {
+                  return false;
+                }
+                if(validator.max !== undefined && validator.max < count) {
+                  return false;
+                }
+                if(validator.expr !== undefined) {
+                  return validator.expr.test($field.val());
+                }
+              }
+              console.log("Unknown validator:", type);
               return false;
             },
             error: function() {
@@ -396,5 +417,13 @@ $.iforms.settings = {
   routes: {},
   delay: 1000,
 };
+
+$.iforms.validators = {
+  email: {
+    min: 3,
+    expr: /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w+)+$/,
+    error: "Invalid email address"
+  }
+}
 
 })( jQuery, window, document );
