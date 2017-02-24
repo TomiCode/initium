@@ -9,7 +9,7 @@
  *
  ***/
 
- ;(function($, window, document, undefined) {
+;(function($, window, document, undefined) {
 
 "use strict";
 
@@ -49,6 +49,7 @@ $.initium.validate = $.fn.initium.validate = function(parameters) {
       $field = $(this),
       field,
 
+      $prompt,
       validator = $.initium.validators[$field.data(settings.data.validator)] || false;
 
     field = {

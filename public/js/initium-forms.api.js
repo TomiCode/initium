@@ -159,7 +159,7 @@ $.iforms = $.fn.iforms = function(parameters) {
                 else {
                   field.create.prompt("Invalid value!");
                 }
-                
+
                 field.failed = true;
                 fieldsValid = false;
               }
@@ -315,9 +315,6 @@ $.iforms = $.fn.iforms = function(parameters) {
               url       : url,
               data      : data,
               method    : "POST",
-              // completed : module.request.completed,
-              // error     : module.request.error,
-              // success   : module.request.success,
             })
               .always(module.request.always)
               .done(module.request.done)

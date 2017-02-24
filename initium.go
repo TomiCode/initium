@@ -170,6 +170,11 @@ type ModuleOption struct {
   Route string
 }
 
+type ModuleElement struct {
+  Title string
+  Hash uint
+}
+
 type ModuleCategoryCollection struct {
   Name string
   Collection []*ModuleOption
@@ -179,6 +184,15 @@ type ModuleCollection struct {
   Header *ModuleOption
   Options []*ModuleCategoryCollection
   Controller string
+}
+
+type InternalModuleCategories struct {
+  Title string
+}
+
+type InternalModule struct {
+  *ModuleElement
+  
 }
 
 type InitiumModule struct {
@@ -212,7 +226,7 @@ type TemplateParameter struct {
 }
 
 type InitiumApp struct {
-  routes map[string]*RoutingCollection
+  routes map[uint]*RoutingCollection
   modules []*ModuleCollection
   sessions *SessionStorage
   database *sql.DB
@@ -228,7 +242,7 @@ func CreateInitium(debug bool) (*InitiumApp) {
 }
 
 func (app *InitiumApp) Initialize() (*InitiumApp) {
-  app.routes = make(map[string]*RoutingCollection, 0)
+  app.routes = make(map[uint]*RoutingCollection, 0)
   app.Stats = &runtime.MemStats{}
   app.CreateSessionStorage()
 
@@ -242,6 +256,15 @@ func (app *InitiumApp) GenerateUUID(size int) string {
   rand.Read(result_id)
 
   return fmt.Sprintf("%02x", result_id)
+}
+
+func (app *InitiumApp) GenerateHash(alias string) (result uint) {
+  result = 0x1EEF
+  for _, r := range alias {
+    result = result ^ 0x1EEF
+    result = result * uint(r)
+  }
+  return
 }
 
 func (app *InitiumApp) OpenDatabase(connection string) {
@@ -287,9 +310,10 @@ func (app *InitiumApp) UpdateMemoryStats() {
 }
 
 func (app *InitiumApp) Route(name string, params ...interface{}) string {
-  route, valid := app.routes[name]
+  var hash = app.GenerateHash(name)
+  route, valid := app.routes[hash]
   if !valid {
-    log.Println("Route does not exists:", name)
+    log.Println("No route for alias", name, "hash", hash)
     return ""
   }
 
@@ -354,7 +378,8 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, template string, 
       for _, category := range module.Options {
         var categoryCollection = &ModuleCategoryCollection{Name: category.Name}
         for _, option := range category.Collection {
-          if option.Route != "" && request.HasAccess(app.routes[option.Route]) {
+          // option.Route
+          if option.Route != "" && request.HasAccess(app.routes[app.GenerateHash(option.Route)]) {
             categoryCollection.Collection = append(categoryCollection.Collection, option)  
           }
         }
@@ -363,7 +388,7 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, template string, 
         }
       }
     } else {
-      if module.Header.Route != "" && request.HasAccess(app.routes[module.Header.Route]) {
+      if module.Header.Route != "" && request.HasAccess(app.routes[app.GenerateHash(module.Header.Route)]) {
         appHeader.Elements = append(appHeader.Elements, module.Header)
       }
     }
@@ -389,6 +414,7 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, template string, 
 func (app *InitiumApp) RegisterController(controller InitiumController) {
   var module = controller.RegisterModule()
   var controllerAlias string
+  var aliasHash uint
 
   if module != nil && module.ControllerAlias != "" {
     controllerAlias = module.ControllerAlias
@@ -412,7 +438,7 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
     expr, err := regexp.Compile("^" + strings.Replace(abstractUri, "%v", "([^/]*?)", -1) + "$")
     if err != nil {
       log.Println("[Warn] Regular expression error:", v.uri)
-      continue;
+      continue
     }
 
     var routingTable = &RoutingCollection{
@@ -427,15 +453,17 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
     }
 
     if v.alias != "" {
-      app.routes[v.alias] = routingTable
-      log.Println("Registered named route:", v.method, v.uri, "as", v.alias)
+      aliasHash = app.GenerateHash(v.alias)
     } else {
       var unamed string = app.GenerateUUID(4)
-      app.routes[unamed] = routingTable
-      log.Println("Registered unnamed route:", v.method, v.uri, "as", unamed)
+      aliasHash = app.GenerateHash(unamed)
     }
+
+    app.routes[aliasHash] = routingTable
+    log.Printf("Registered named route: %s:%s as %s hash: %x.\n", v.method, v.uri, v.alias, aliasHash)
   }
   log.Println("Routing table compiled for:", controllerAlias)
+  log.Println("Route count: ", len(app.routes))
 
   if module == nil {
     log.Println("Controller registered without options:", controllerAlias)
@@ -463,7 +491,12 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
 }
 
 func (app *InitiumApp) ProcessRouting(req *InitiumRequest) (*RequestParameters, error) {
+
+  log.Println("Application route count: ", len(app.routes), app.routes)
+
   for _, route := range app.routes {
+    log.Println("Current route: ", route)
+
     if ((route.method != "" && route.method == req.Request.Method) || (route.method == "" && req.Request.Method == "GET")) && route.expr.MatchString(req.Request.URL.Path) {
       uriScheme := route.expr.FindStringSubmatch(req.Request.URL.Path)
       if uriScheme[0] != req.Request.URL.Path {
