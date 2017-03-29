@@ -16,6 +16,7 @@ import "time"
 
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
+import _ "github.com/mattn/go-sqlite3"
 
 const (
   Permission_None       = 0x00
@@ -89,12 +90,12 @@ func (request *InitiumRequest) HasAccess(route *RoutingCollection) bool {
   if route.permission == Permission_NoAuth && request.User != nil {
     return false
   }
-  
+
   if (route.permission & Permission_Auth_None) == Permission_Auth_None {
     if request.User == nil {
       return false
     }
-    
+
     var currentPermission uint8 = request.Permissions.Value(route.controller)
     if (route.permission & currentPermission) != currentPermission {
       return false
@@ -158,7 +159,7 @@ type RoutingCollection struct {
   method string
   params []string
   handler RequestFunction
-  controller string 
+  controller string
 
   // Routing alias to url path.
   abstract string
@@ -192,7 +193,7 @@ type InternalModuleCategories struct {
 
 type InternalModule struct {
   *ModuleElement
-  
+
 }
 
 type InitiumModule struct {
@@ -270,8 +271,8 @@ func (app *InitiumApp) GenerateHash(alias string) (result uint) {
 func (app *InitiumApp) OpenDatabase(connection string) {
   var err error
   log.Println("Opening database connection.")
-  app.database, err = sql.Open("mysql", connection)
-
+  // app.database, err = sql.Open("mysql", connection)
+  app.database, err = sql.Open("sqlite3", "./database.db")
   if err != nil {
     log.Println("Error while opening database connection:", err)
   }
@@ -380,7 +381,7 @@ func (app *InitiumApp) RenderTemplate(request *InitiumRequest, template string, 
         for _, option := range category.Collection {
           // option.Route
           if option.Route != "" && request.HasAccess(app.routes[app.GenerateHash(option.Route)]) {
-            categoryCollection.Collection = append(categoryCollection.Collection, option)  
+            categoryCollection.Collection = append(categoryCollection.Collection, option)
           }
         }
         if len(categoryCollection.Collection) > 0 {
@@ -428,18 +429,22 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
     var params []string
 
     for idx, part := range urlparts {
-      if strings.HasPrefix(part, "{") {
-        params = append(params, part[1:len(part) - 1])
+      if strings.HasPrefix(part, ":") {
+        log.Println("Parsed route parameter:", part)
+        params = append(params, part[1:len(part)])
         urlparts[idx] = "%v"
       }
     }
 
     var abstractUri = strings.Join(urlparts, "/")
+    log.Println("Abstract url:", abstractUri)
     expr, err := regexp.Compile("^" + strings.Replace(abstractUri, "%v", "([^/]*?)", -1) + "$")
     if err != nil {
       log.Println("[Warn] Regular expression error:", v.uri)
       continue
     }
+
+    log.Printf("Url parts: %v, routing params: %v\n", urlparts, params)
 
     var routingTable = &RoutingCollection{
       mode: v.mode,
