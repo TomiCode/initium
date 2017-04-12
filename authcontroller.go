@@ -60,13 +60,13 @@ func (auth *AuthController) loginForm(req *InitiumRequest, params *RequestParame
   err = auth.AuthenticateLogin(user, pass, req.Session)
   if err != nil {
     log.Println("Can not authorize user.")
-    if auth.test % 2 == 0 {
-      response.Error = "There was an error while authorizing your session. Seems, that You may have entered a wrong username or password."
-    } else {
-      response.Error = "Something unexpected happened."
-    }
-    auth.test++
-    return auth.RenderData(req, response)
+    // if auth.test % 2 == 0 {
+    //  response.Error = "There was an error while authorizing your session. Seems, that You may have entered a wrong username or password."
+    // } else {
+      response.Error = "Testing message systtem"
+    // }
+    // auth.test++
+    // return auth.RenderData(req, response)
   }
 
   log.Println("Authorized user:", user)

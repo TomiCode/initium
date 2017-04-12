@@ -1,6 +1,6 @@
 /* 
       Initium Project 
-  ** Tomasz Król, 2016 **
+  ** Tomasz Król, 2016-2017 **
 */
 
 ;(function($, window, document, undefined) {
@@ -325,8 +325,8 @@ $.iforms = $.fn.iforms = function(parameters) {
         always: function(res, status, obj) {
           console.log("Ajax completed:", status);
           // module.remove.loading();
-          // setTimeout(function(){
-            
+          // setTimeout(function() {
+          //
           // }, 500);
         },
         done: function(data, status, xhr) {

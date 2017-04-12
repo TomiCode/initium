@@ -305,7 +305,7 @@ func (app *InitiumApp) CloseDatabase() {
 
 func (app *InitiumApp) UpdateMemoryStats() {
   runtime.ReadMemStats(app.Stats)
-  log.Print("Update memory: Alloc: ", (app.Stats.Alloc / 1024), " KB, System: ", (app.Stats.Sys / 1024), " KB")
+  log.Println("Memory allocated:", (app.Stats.Alloc / 1024), "KiB, system:", (app.Stats.Sys / 1024), "KiB")
 
   time.AfterFunc(time.Duration(time.Second * 16), app.UpdateMemoryStats)
 }
@@ -463,7 +463,6 @@ func (app *InitiumApp) RegisterController(controller InitiumController) {
       var unamed string = app.GenerateUUID(4)
       aliasHash = app.GenerateHash(unamed)
     }
-
     app.routes[aliasHash] = routingTable
     log.Printf("Registered named route: %s:%s as %s hash: %x.\n", v.method, v.uri, v.alias, aliasHash)
   }

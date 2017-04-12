@@ -1,7 +1,7 @@
 /***
  *
  *  Developed and Programmed by Tomasz Król <tomicode@gmail.com>, 
- *   INITIUM PROJECT (c) 2016.
+ *   INITIUM PROJECT (c) 2016-2017.
  *    Afterall, if You read this message, then have a nice day! :)
  *
  * Javascript bindings for Initium content javascript bindings 

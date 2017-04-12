@@ -1,0 +1,61 @@
+{{template "header" .Header}}
+
+%div.ui.container
+  %div.ui.one.column.grid
+    %div.column
+      %div.ui.segment
+        %form.ui.form :data => {handler: 'auth.login.form'}
+          %div.field
+            %label Test01
+            %input name: 'email', placeholder: 'Test01', data-type: 'email'
+          %div.field
+            %label Test02
+            %input name: 'password', placeholder: 'Test02', data-type: 'text'
+          %div.field
+            %div.ui.checkbox
+              %input.hidden tabindex: 0, type: 'checkbox', name: 'terms'
+              %label I agree to the Terms and Conditions
+          %div.ui.button data: {binding: 'form'}, id: 'binding_test', type: submit
+            Submit
+
+<div class="ui container">
+  <div class="ui one column grid">
+    <div class="column">
+      <div class="ui segment">
+        <form class="ui form" data-handler="auth.login.form" id="int_test_first">
+          <div class="field">
+            <label>Test01</label>
+            <input name="email" placeholder="Test01" type="text" data-type="email">
+          </div>
+          <div class="field">
+            <label>Test02</label>
+            <input name="passwd" placeholder="Test02" type="text">
+          </div>
+          <div class="field">
+            <div class="ui checkbox">
+              <input class="hidden" tabindex="0" type="checkbox" name="terms">
+              <label>I agree to the Terms and Conditions</label>
+            </div>
+          </div>
+          <div id="binding_test" data-binding="form" class="ui button" type="submit">Submit</div>
+        </form>
+      </div>
+    </div>
+    <div class="column">
+      <div class="ui segment">
+        
+        <div class="ui checkbox">
+          <input id="int_test_second" class="hidden" tabindex="0" type="checkbox">
+          <label>Sample checkbox</label>
+        </div>
+
+        <div class="ui fluid icon input">
+          <input id="int_test_third" placeholder="Test input field" type="text">
+          <i class="search icon"></i>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{{template "footer"}}
