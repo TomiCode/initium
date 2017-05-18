@@ -14,9 +14,15 @@ import "path/filepath"
 import "runtime"
 import "time"
 
+/* Database driver. */
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
 import _ "github.com/mattn/go-sqlite3"
+
+/* Local initium packages. */
+import _ "initium/controllers"
+import _ "initium/models"
+import _ "initium/views"
 
 const (
   Permission_None       = 0x00
@@ -81,6 +87,9 @@ func (request *InitiumRequest) Redirect(url string) error {
   return nil
 }
 
+/*
+  Handle user permission as functions? 
+*/
 func (request *InitiumRequest) HasAccess(route *RoutingCollection) bool {
   if route == nil {
     log.Println("Routing collection is nil. Can not access permissions.")

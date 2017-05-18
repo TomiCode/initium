@@ -23,6 +23,12 @@ func (controller* AuthController) RegisterRouting() []*ControllerRoute {
   }
 }
 
+
+// func (controlelr* AuthController)
+
+/*
+  @RouteManager path: '/auth', as: 'auth.login', before: 'permissionCheckFunction'
+*/
 func (controller *AuthController) getLogin(req *InitiumRequest, params *RequestParameters) error {
   return controller.RenderTemplate(req, "auth.login", nil)
 }
@@ -72,7 +78,7 @@ func (auth *AuthController) loginForm(req *InitiumRequest, params *RequestParame
   log.Println("Authorized user:", user)
   req.AddAlert("success", "Authorization", "Successful loggined in. Hello again!")
 
-  response.Success = true
-  response.Redirect = auth.Route("blog.index")
+  response.Success = false
+  // response.Redirect = auth.Route("blog.index")
   return auth.RenderData(req, response)
 }

@@ -16,7 +16,7 @@ func main() {
 
   app.RegisterController(&AuthController{app, 0})
   app.RegisterController(&BlogController{app})
-  app.RegisterController(&TestController{app})
+  app.RegisterController(&TestController{AppController{app}})
 
   err := http.ListenAndServe("localhost:1337", app)
   if err != nil {

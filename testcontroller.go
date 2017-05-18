@@ -2,8 +2,12 @@ package main
 
 import "log"
 
-type TestController struct {
+type AppController struct {
   ApplicationInterface
+}
+
+type TestController struct {
+  AppController
 }
 
 func (controller *TestController) RegisterModule() *InitiumModule {
