@@ -1,0 +1,19 @@
+{{template "header" .Header}}
+%div.ui.container
+  %div.ui.one.column.grid
+    %div.column
+      %div.ui.segment
+        %form.ui.form{:data => {handler: 'auth.login.form'}}
+          %div.field
+            %label Test01
+            %input{name: 'email', placeholder: 'Test01', data: {type: 'email'}}
+          %div.field
+            %label Test02
+            %input{name: 'password', placeholder: 'Test02', data:{type: 'text'}}
+          %div.field
+            %div.ui.checkbox
+              %input.hidden{tabindex: 0, type: 'checkbox', name: 'terms'}
+              %label I agree to the Terms and Conditions
+          %div.ui.button{data: {binding: 'form'}, id: 'binding_test', type: 'submit'}
+            Submit
+{{template "footer"}}

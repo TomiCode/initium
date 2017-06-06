@@ -8,6 +8,7 @@ func TestGenerateHash(*testing.T) {
   if initium.GenerateHash("") != 0x1EEF {
     log.Fatal("Unknown hash generator.")
   }
+
   if initium.GenerateHash("auth.login.form") == initium.GenerateHash("auth.login.post") {
     log.Fatal("Hash failed.")
   }
