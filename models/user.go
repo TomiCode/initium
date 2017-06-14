@@ -1,7 +1,6 @@
 package models
 
 type User struct {
-  AppModel
   Username string
   Password string
 }
