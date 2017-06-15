@@ -1,13 +1,14 @@
 package controllers
 
 import "log"
-import "http"
+import "net/http"
 import "regexp"
 import "strings"
 
 const (
-  MethodGET   = iota
-  MethodPOST  = iota
+  MethodGET     = iota
+  MethodPOST    = iota
+  MethodINVALID = 0xFF
 )
 
 type InitiumController interface{
@@ -71,8 +72,10 @@ func registerRoute(uri string, callback ReqFn, method uint8, access AccessFn) in
   var routeId = len(routes)
 
   if !strings.Contains(uri, ":") {
-    routes = append(routes, &InitiumRoute{uri: uri, method: method, access: access, callback: callback})
-    log.Println("Simple route registered:", uri, "id:", routeId)
+    suri := "/" + selfController.alias() + uri
+    routes = append(routes, &InitiumRoute{uri: suri, method: method, access: access, callback: callback})
+
+    log.Println("Simple route registered:", suri, "id:", routeId)
     return routeId
   }
 
@@ -89,19 +92,20 @@ func registerRoute(uri string, callback ReqFn, method uint8, access AccessFn) in
   
   urlparts[0] = selfController.alias()
 
-  var formatUri string = strings.Join(urlparts, "/")
+  var formatUri string = "/" + strings.Join(urlparts, "/")
   var alias string = routeAlias(urlparts, params)
 
   if _, exists := abstract_routes[alias]; !exists {
     abstract_routes[alias] = formatUri
   }
 
+  // \A/blog/([\w-]+?)/?\z
   regexp, err := regexp.Compile("^" + strings.Replace(formatUri, "%v", "([^/]*?)", -1) + "$")
   if err != nil {
     log.Fatal("Can not compile regular expression:", err)
   }
 
-  routes = append(routes, &InitiumRoute{uri: uri, 
+  routes = append(routes, &InitiumRoute{uri:formatUri, 
     reg: regexp,
     method: method,
     params: params,
@@ -120,8 +124,36 @@ func registerMenuCategory(title string) int {
   return 0
 }
 
-func GetRouting(w http.ResponseWriter, r *http.Request) {
-  
+func methodNumber(method string) uint8 {
+  switch(method) {
+  case "GET":
+    return MethodGET
+  case "POST":
+    return MethodPOST
+  default:
+    return MethodINVALID
+  }
+}
+
+func GetRouting(r *http.Request) (*InitiumRoute, error) {
+  var method uint8 = methodNumber(r.Method)
+
+  for _, route := range(routes) {
+    if route.method != method {
+      continue
+    }
+
+    if route.reg == nil {
+      if r.URL.Path == route.uri {
+        return route, nil
+      }
+    } else {
+      if route.reg.MatchString(r.URL.Path) {
+        return route, nil
+      }
+    }
+  }
+  return nil, nil
 }
 
 func init() {

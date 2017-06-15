@@ -15,7 +15,7 @@ func (this *BlogController) init() bool {
   tools := registerMenuCategory("Tools")
   
   // 'blog'
-  registerMenuOption("Home", 0, nil, registerRoute("/", this.Index, MethodGET, nil))
+  registerMenuOption("Home", 0, nil, registerRoute("", this.Index, MethodGET, nil))
   // 'blog_news'
   registerMenuOption("News", tools, nil, registerRoute("/news", this.News, MethodGET, nil))
 

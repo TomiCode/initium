@@ -20,7 +20,7 @@ import _ "github.com/go-sql-driver/mysql"
 import _ "github.com/mattn/go-sqlite3"
 
 /* Local initium packages. */
-import _ "initium/controllers"
+import "initium/controllers"
 import _ "initium/models"
 import _ "initium/views"
 
@@ -535,44 +535,52 @@ func (app *InitiumApp) ProcessRouting(req *InitiumRequest) (*RequestParameters, 
 }
 
 func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-  if r.Method == "GET" && strings.Contains(r.URL.Path, ".") {
+  log.Println("Request", r.URL.Path, "method", r.Method)
+
+  if r.Method == "GET" && strings.Contains(r.URL.Path, "assets") {
     log.Print("File request ", r.Method, ": ", r.URL.Path)
     http.ServeFile(w, r, "public" + r.URL.Path)
     return
   }
 
-  log.Print("Router request ", r.Method, ": ", r.URL.Path)
-  var request = &InitiumRequest{Writer: w, Request: r}
-
-  var parameters, err = app.ProcessRouting(request)
+  currentRoute, err := controllers.GetRouting(r)
   if err != nil {
-    log.Println("Error occured:", err);
-    return
+    log.Println("Error occured:", err)
   }
+  log.Println("Current route:", currentRoute)
 
-  err = app.sessions.StartSession(request)
-  if err != nil {
-    log.Println("Session error:", err)
-    return
-  }
+  // log.Print("Router request ", r.Method, ": ", r.URL.Path)
+  // var request = &InitiumRequest{Writer: w, Request: r}
 
-  err = app.sessions.SessionAuthenticate(request)
-  if err != nil {
-    log.Println("Session authenticate error:", err)
-    return
-  }
+  // var parameters, err = app.ProcessRouting(request)
+  // if err != nil {
+  //   log.Println("Error occured:", err);
+  //   return
+  // }
 
-  if !request.HasAccess(request.Route) {
-    log.Println("Session has no permissions to view this route.")
-    return
-  }
+  // err = app.sessions.StartSession(request)
+  // if err != nil {
+  //   log.Println("Session error:", err)
+  //   return
+  // }
 
-  log.Println("Starting handler from controller:", request.Route.controller)
-  err = request.Route.handler(request, parameters)
-  if err != nil {
-    log.Println("Handler error:", err)
-    return
-  }
+  // err = app.sessions.SessionAuthenticate(request)
+  // if err != nil {
+  //   log.Println("Session authenticate error:", err)
+  //   return
+  // }
+
+  // if !request.HasAccess(request.Route) {
+  //   log.Println("Session has no permissions to view this route.")
+  //   return
+  // }
+
+  // log.Println("Starting handler from controller:", request.Route.controller)
+  // err = request.Route.handler(request, parameters)
+  // if err != nil {
+  //   log.Println("Handler error:", err)
+  //   return
+  // }
 }
 
 func (app *InitiumApp) AuthenticateLogin(user, pass string, session ApplicationSession) error {
