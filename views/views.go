@@ -11,5 +11,5 @@ type MenuOption struct {
 }
 
 func init() {
-  log.Println("Hello world")
+  log.Println("InitiumViews package init.")
 }

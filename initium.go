@@ -22,7 +22,7 @@ import _ "github.com/mattn/go-sqlite3"
 /* Local initium packages. */
 import _ "initium/controllers"
 import _ "initium/models"
-// import _ "initium/views"
+import _ "initium/views"
 
 const (
   Permission_None       = 0x00

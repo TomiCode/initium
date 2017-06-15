@@ -5,32 +5,58 @@ import "log"
 type BlogController struct {
 }
 
+func (this *BlogController) alias() string {
+  return "blog"
+}
+
 func (this *BlogController) init() bool {
-  tools := registerMenuCategory('Tools')
+  log.Println("Registering BlogController into Initium..")
+
+  tools := registerMenuCategory("Tools")
   
-  registerMenuOption(&InitiumMenu{title: 'Home', 
-    route: registerRoute(&InitiumRoute{uri: '/', callback: this.Index}),
-    category: tools,
-  })
+  // 'blog'
+  registerMenuOption("Home", 0, nil, registerRoute("/", this.Index, MethodGET, nil))
+  // 'blog_news'
+  registerMenuOption("News", tools, nil, registerRoute("/news", this.News, MethodGET, nil))
 
-  registerMenuOption(&InitiumMenu{title: 'News',
-    route: registerRoute(&InitiumRoute{uri: '/news', callback: this.News),
-  })
-
-  registerRoute(&InitiumRoute{uri: '/news', callback: this.CreateNews, method: MethodPOST})
+  // 'blog_news'  
+  registerRoute("/news", this.CreateNews, MethodPOST, nil)
+  // 'blog_news_id'
+  registerRoute("/news/:id", this.ViewNews, MethodGET, nil)
+  // 'blog_news_id'
+  registerRoute("/news/:id", this.EditNews, MethodPOST, nil)
+  // 'blog_news_id_delete'
+  registerRoute("/news/:id/delete", this.DeleteNews, MethodGET, nil)
 
   return true
 }
 
 func (this *BlogController) Index(a bool, b bool) error {
-  log.Println("Index from blog controller.")
+  log.Println("BlogController Index.")
   return nil
 }
 
 func (this *BlogController) News(a bool, b bool) error {
+  log.Println("BlogController News.")
   return nil
 }
 
 func (this *BlogController) CreateNews(a bool, b bool) error {
+  log.Println("BlogController CreateNews.")
+  return nil
+}
+
+func (this *BlogController) ViewNews(a bool, b bool) error {
+  log.Println("BlogController ViewNews.")
+  return nil
+}
+
+func (this *BlogController) EditNews(a bool, b bool) error {
+  log.Println("BlogController EditNews.")
+  return nil
+}
+
+func (this *BlogController) DeleteNews(a bool, b bool) error {
+  log.Println("BlogController DeleteNews.")
   return nil
 }
