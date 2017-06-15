@@ -543,11 +543,11 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  currentRoute, err := controllers.GetRouting(r)
-  if err != nil {
-    log.Println("Error occured:", err)
+  if route := controllers.GetRoute(r); route == nil {
+    log.Println("No route for this uri.")
+    return
   }
-  log.Println("Current route:", currentRoute)
+  
 
   // log.Print("Router request ", r.Method, ": ", r.URL.Path)
   // var request = &InitiumRequest{Writer: w, Request: r}

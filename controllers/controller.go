@@ -41,7 +41,6 @@ type AccessFn func(bool) bool
 type VisibleFn func(bool) bool
 
 type InitiumRoute struct {
-  uri string
   reg *regexp.Regexp
   method uint8
   params []string
@@ -69,51 +68,36 @@ func routeAlias(parts []string, params []string) string {
 }
 
 func registerRoute(uri string, callback ReqFn, method uint8, access AccessFn) int {
+  var newroute *InitiumRoute = &InitiumRoute{callback: callback, method: method, access: access}
   var routeId = len(routes)
 
-  if !strings.Contains(uri, ":") {
-    suri := "/" + selfController.alias() + uri
-    routes = append(routes, &InitiumRoute{uri: suri, method: method, access: access, callback: callback})
+  var parts []string = strings.Split(uri, "/")
+  var err error
 
-    log.Println("Simple route registered:", suri, "id:", routeId)
-    return routeId
-  }
-
-  var urlparts []string = strings.Split(uri, "/")
-  var params []string
-
-  for index, part := range urlparts {
-    if !strings.Contains(part, ":") {
-      continue
+  if strings.Contains(uri, ":") {
+    for index, part := range(parts) {
+      if !strings.Contains(part, ":") {
+        continue
+      }
+      parts[index] = "%v"
+      newroute.params = append(newroute.params, part[1:])
     }
-    urlparts[index] = "%v"
-    params = append(params, part[1:])
   }
-  
-  urlparts[0] = selfController.alias()
+  parts[0] = selfController.alias()
 
-  var formatUri string = "/" + strings.Join(urlparts, "/")
-  var alias string = routeAlias(urlparts, params)
-
-  if _, exists := abstract_routes[alias]; !exists {
-    abstract_routes[alias] = formatUri
+  var uriformat string = strings.Join(parts, "/")
+  var alias string = routeAlias(parts, newroute.params)
+  if _, exist := abstract_routes[alias]; !exist {
+    abstract_routes[alias] = uriformat
   }
 
-  // \A/blog/([\w-]+?)/?\z
-  regexp, err := regexp.Compile("^" + strings.Replace(formatUri, "%v", "([^/]*?)", -1) + "$")
+  newroute.reg, err = regexp.Compile("\\A/" + strings.Replace(uriformat, "%v", "([\\w-]+?)", -1) + "/?\\z")
   if err != nil {
-    log.Fatal("Can not compile regular expression:", err)
+    log.Fatal("Error while regexp compilation:", err)
   }
+  routes = append(routes, newroute)
 
-  routes = append(routes, &InitiumRoute{uri:formatUri, 
-    reg: regexp,
-    method: method,
-    params: params,
-    access: access,
-    callback: callback,
-  })
-
-  log.Println("Registered expression route:", uri, "id:", routeId)
+  log.Println("Registered route:", uri, "id:", routeId)
   return routeId
 }
 
@@ -135,25 +119,18 @@ func methodNumber(method string) uint8 {
   }
 }
 
-func GetRouting(r *http.Request) (*InitiumRoute, error) {
+func GetRoute(r *http.Request) (*InitiumRoute) {
   var method uint8 = methodNumber(r.Method)
 
   for _, route := range(routes) {
     if route.method != method {
       continue
     }
-
-    if route.reg == nil {
-      if r.URL.Path == route.uri {
-        return route, nil
-      }
-    } else {
-      if route.reg.MatchString(r.URL.Path) {
-        return route, nil
-      }
+    if route.reg.MatchString(r.URL.Path) {
+      return route
     }
   }
-  return nil, nil
+  return nil
 }
 
 func init() {
