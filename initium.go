@@ -22,7 +22,7 @@ import _ "github.com/mattn/go-sqlite3"
 /* Local initium packages. */
 import "initium/controllers"
 import _ "initium/models"
-import _ "initium/views"
+
 
 const (
   Permission_None       = 0x00
@@ -547,7 +547,7 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     log.Println("No route for this uri.")
     return
   }
-  
+
 
   // log.Print("Router request ", r.Method, ": ", r.URL.Path)
   // var request = &InitiumRequest{Writer: w, Request: r}
