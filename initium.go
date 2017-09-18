@@ -43,7 +43,6 @@ const (
   RequestType_API    = 0x04
 )
 
-
 type InitiumError struct {
   message string
   code int
@@ -87,9 +86,7 @@ func (request *InitiumRequest) Redirect(url string) error {
   return nil
 }
 
-/*
-  Handle user permission as functions? 
-*/
+// Handle user permission as functions?
 func (request *InitiumRequest) HasAccess(route *RoutingCollection) bool {
   if route == nil {
     log.Println("Routing collection is nil. Can not access permissions.")
