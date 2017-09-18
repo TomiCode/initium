@@ -3,18 +3,28 @@ package main
 import "initium/app"
 import "log"
 
-type TestController {
+type TestController struct {
   app.AppController
 }
 
 func init() {
   log.Println("TestController global init method.")
+
+  controller := &TestController{}
+  controller.Alias("test").Register()
+  // controller.Alias("test")
+
+  // app.CreateRoute("/", controller.index).Bind(controller).Register()
+  // app.CerateRoute("test", controller.test).Bind(controller).Register()
 }
 
 func (c *TestController) index() {
   log.Println("TestController index method.")
 }
 
+func (c *TestController) test() {
+  log.Println("TestController test method.")
+}
 
 // type AppController struct {
 //  ApplicationInterface

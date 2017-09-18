@@ -16,12 +16,12 @@ import "time"
 
 /* Database driver. */
 import "database/sql"
-import _ "github.com/go-sql-driver/mysql"
 import _ "github.com/mattn/go-sqlite3"
+// import _ "github.com/go-sql-driver/mysql"
 
 /* Local initium packages. */
-import "initium/controllers"
-import _ "initium/models"
+// import "initium/controllers"
+// import _ "initium/models"
 
 
 const (
@@ -540,10 +540,10 @@ func (app *InitiumApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  if route := controllers.GetRoute(r); route == nil {
-    log.Println("No route for this uri.")
-    return
-  }
+  // if route := controllers.GetRoute(r); route == nil {
+  //  log.Println("No route for this uri.")
+  //  return
+  // }
 
 
   // log.Print("Router request ", r.Method, ": ", r.URL.Path)

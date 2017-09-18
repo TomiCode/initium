@@ -11,5 +11,5 @@ func init() {
 }
 
 func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-  log.Println("Call ServeHTTP method.")
+  log.Println("Handle request path:", r.URL.Path, "method:", r.Method)
 }
