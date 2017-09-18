@@ -14,9 +14,9 @@ func (this *BlogController) init() bool {
   log.Println("Registering BlogController into Initium..")
 
   tools := registerCategory(this.id, "Tools")
-  
+
   // 'blog'
-  registerOption(this.id, "Home", BaseCategory, 
+  registerOption(this.id, "Home", BaseCategory,
     registerRoute(this.id, "", this.Index, MethodGET, nil))
 
   // 'blog_news'
@@ -25,7 +25,7 @@ func (this *BlogController) init() bool {
 
   // 'blog_news'  
   registerRoute(this.id, "/news", this.CreateNews, MethodPOST, nil)
-  
+
   // 'blog_news_id'
   registerRoute(this.id, "/news/:id", this.ViewNews, MethodGET, nil)
   // 'blog_news_id'
