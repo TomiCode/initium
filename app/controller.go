@@ -11,24 +11,20 @@ type AppController struct {
 type RequestMethod func(bool) error
 
 // Memory mapping for all controllers.
-var appControllers *AppController[]
+var appControllers []*AppController
 
-func init() {
-  log.Println("Controller global init method.")
-}
-
+// Change controller namespace.
 func (controller *AppController) Alias(alias string) (*AppController) {
   log.Println("Set controller alias to:", alias)
   controller.alias = alias
   return controller
 }
 
+// Register the controller into Intium.
 func (controller *AppController) Register() bool {
   log.Printf("Register controller: %p\n", controller)
-  return true
-}
+  appControllers = append(appControllers, controller)
 
-func (controller *AppController) hash() string {
-  log.Println("Calculating hash for controller.")
-  return "<none>"
+  log.Println("Registered controllers:", len(appControllers))
+  return true
 }
