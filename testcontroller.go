@@ -12,18 +12,19 @@ func init() {
 
   controller := &TestController{}
   controller.Alias("test").Register()
-  // controller.Alias("test")
 
-  // app.CreateRoute("/", controller.index).Bind(controller).Register()
-  // app.CerateRoute("test", controller.test).Bind(controller).Register()
+  app.CreateRoute("/", controller.index).Bind(controller.Id()).Register()
+  app.CreateRoute("test/:id", controller.test).Bind(controller.Id()).Register()
 }
 
-func (c *TestController) index() {
+func (c *TestController) index(param bool) error {
   log.Println("TestController index method.")
+  return nil
 }
 
-func (c *TestController) test() {
+func (c *TestController) test(param bool) error {
   log.Println("TestController test method.")
+  return nil
 }
 
 // type AppController struct {

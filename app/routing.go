@@ -12,6 +12,7 @@ type AppRoute struct {
 
 // Application routing table.
 var appRoutes []*AppRoute
+// var appRoutes map[uint64]*AppRoute
 
 // Create routing object with parsed path and callback method.
 func CreateRoute(path string, callback RequestMethod) (*AppRoute) {
