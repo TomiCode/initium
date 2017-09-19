@@ -9,7 +9,7 @@ type AppController struct {
 }
 
 // Controller request method.
-type RequestMethod func(bool) error
+type RequestCallback func(bool) error
 
 // Memory mapping for all controllers.
 // var appControllers []*AppController
