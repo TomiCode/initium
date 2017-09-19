@@ -4,6 +4,7 @@ import "log"
 import "fmt"
 import "regexp"
 import "strings"
+import "net/http"
 
 // Local routing element.
 type AppRoute struct {
@@ -27,13 +28,26 @@ type RouteMethod struct {
   callback RequestCallback
 }
 
+type RouteCollection map[string]*InternalRoute
+
 // Application routing table.
-var appRoutes map[string]*InternalRoute
+var appRoutes RouteCollection
 
 // Initialize the route mapping.
 func init() {
   log.Println("Initializing route mapping.")
-  appRoutes = make(map[string]*InternalRoute)
+  appRoutes = make(RouteCollection)
+}
+
+// Get corresponding route for a request.
+func (collection RouteCollection) get(request *http.Request) *InternalRoute {
+  for id, route := range collection {
+    if route.path.MatchString(request.URL.Path) {
+      log.Println("Found route for request:", id, route)
+      return route
+    }
+  }
+  return nil
 }
 
 // Create regular expression based on abstract routing path.
