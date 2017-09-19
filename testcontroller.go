@@ -11,7 +11,7 @@ func init() {
   log.Println("TestController global init method.")
 
   controller := &TestController{}
-  controller.Register()
+  controller.Alias("test").Register()
 
   app.CreateRoute("/", controller.index).Bind(controller.Id()).Register()
   app.CreateRoute("test/:id", controller.test).Bind(controller.Id()).Register()
