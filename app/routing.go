@@ -6,20 +6,12 @@ import "regexp"
 import "strings"
 import "net/http"
 
-// Local routing element.
+// Application route element.
 type AppRoute struct {
-  path string
-  method uint8
-  callback RequestCallback
-  controller uint64
-}
-
-// Compiled routing element.
-type InternalRoute struct {
   path *regexp.Regexp
+  alias string
   methods []RouteMethod
   abstract string
-  controller uint64
 }
 
 // Request method callback.
@@ -28,7 +20,8 @@ type RouteMethod struct {
   callback RequestCallback
 }
 
-type RouteCollection map[string]*InternalRoute
+// Route collection type.
+type RouteCollection map[string]*AppRoute
 
 // Application routing table.
 var appRoutes RouteCollection
@@ -40,7 +33,7 @@ func init() {
 }
 
 // Get corresponding route for a request.
-func (collection RouteCollection) get(request *http.Request) *InternalRoute {
+func (collection RouteCollection) get(request *http.Request) *AppRoute {
   for id, route := range collection {
     if route.path.MatchString(request.URL.Path) {
       log.Println("Found route for request:", id, route)
@@ -51,65 +44,25 @@ func (collection RouteCollection) get(request *http.Request) *InternalRoute {
 }
 
 // Create regular expression based on abstract routing path.
-func (route *InternalRoute) regularPath() string {
+func (route *AppRoute) pathContent() string {
   return fmt.Sprintf("^%s$", strings.Replace(route.abstract, "%v", "([^/]*?)", -1))
 }
 
 // Compile the routing path regular expression.
-func (route *InternalRoute) compile() (err error) {
-  route.path, err = regexp.Compile(route.regularPath())
+func (route *AppRoute) compile() (err error) {
+  route.path, err = regexp.Compile(route.pathContent())
   return
 }
 
-// Assign fields from AppRoute object.
-func (route *InternalRoute) fromInstance(app_route *AppRoute) {
-  if route.controller == 0 {
-    route.controller = app_route.controller
-  } else if route.controller != app_route.controller {
-    log.Println("Routing controller mismatch! This shouldn't happen!")
-  }
-
-  route.methods = append(route.methods, RouteMethod{method: app_route.method, callback: app_route.callback})
-  log.Println("Assigned from instance:", route.methods)
-}
-
 // Create routing object with parsed path and callback method.
-func CreateRoute(path string, callback RequestCallback) *AppRoute {
+func NewRoute(path string) *AppRoute {
   log.Println("Creating route path", path)
-  return &AppRoute{path: path, callback: callback}
-}
-
-// Change routing request method.
-func (route *AppRoute) Method(method uint8) (*AppRoute) {
-  log.Println("Route", route.path, "changed to method:", method)
-  route.method = method
-  return route
-}
-
-// Bind routing to a application controller.
-func (route *AppRoute) Bind(controller uint64) (*AppRoute) {
-  log.Println("Bind route", route.path, "for controller:", controller)
-  route.controller = controller
-  return route
-}
-
-// Register the routing into Initium.
-func (route *AppRoute) Register() (bool) {
-  log.Println("Registering AppRoute", route.path, "into Initium.")
-  if !strings.HasPrefix(route.path, "/") {
-    log.Println("Creating local route prefix.")
-    if controller, valid := appControllers[route.controller]; valid {
-      route.path = fmt.Sprintf("/%s/%s", controller.alias, route.path)
-    } else {
-      log.Println("Invalid routing controller. Local routing requires a controller binding.")
-      return false
-    }
-  }
 
   // Extracting route and params into different variables.
   var params []interface{}
-  var parts []string = strings.Split(route.path, "/")
+  var parts []string = strings.Split(path, "/")
 
+  // Proceed through all the url path elements.
   for id, part := range(parts) {
     if strings.HasPrefix(part, ":") {
       log.Println("Found route parameter:", part)
@@ -118,18 +71,59 @@ func (route *AppRoute) Register() (bool) {
     }
   }
 
+  // Return a new route instance.
+  return &AppRoute{
+    alias: fmt.Sprintf(strings.Join(parts[1:], "_"), params...),
+    abstract: strings.Join(parts, "/"),
+  }
+}
 
-  // Create and compile the internal routing object.
-  var alias string = fmt.Sprintf(strings.Join(parts, "_"), params...)
-  var iroute = &InternalRoute{abstract: strings.Join(parts, "/")}
-  if err := iroute.compile(); err != nil {
+// Normal basic get request for a route.
+func (route *AppRoute) Get(callback RequestCallback) *AppRoute {
+  return route
+}
+
+// Post callback for route.
+func (route *AppRoute) Post(callback RequestCallback) *AppRoute {
+  return route
+}
+
+// Put request callback.
+func (route *AppRoute) Put(callback RequestCallback) *AppRoute {
+  return route
+}
+
+// Patch callback request method.
+func (route *AppRoute) Patch(callback RequestCallback) *AppRoute {
+  return route
+}
+
+// Delete callback request method.
+func (route *AppRoute) Delete(callback RequestCallback) *AppRoute {
+  return route
+}
+
+// Register the routing into Initium.
+func (route *AppRoute) Register() (bool) {
+  if route.alias == "" {
+    route.alias = "root"
+  }
+
+  // Check if this route does not exists.
+  if _, exists := appRoutes[route.alias]; exists {
+    log.Println("Route", route.alias, "exists in application routing table!")
+    return false
+  }
+
+  log.Println("Registering route", route.alias, "into Initium.")
+
+  // Compile route regular expression.
+  if err := route.compile(); err != nil {
     log.Println("Error while routing compilation:", err)
     return false
   }
 
-  log.Println("Compiled route params:", params, "as", alias)
-  iroute.fromInstance(route)
-  appRoutes[alias] = iroute
-
+  // Add compiled route to the application routing table.
+  appRoutes[route.alias] = route
   return true
 }

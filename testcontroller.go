@@ -11,10 +11,10 @@ func init() {
   log.Println("TestController global init method.")
 
   controller := &TestController{}
-  controller.Alias("test").Register()
+  controller.Register()
 
-  app.CreateRoute("/", controller.index).Bind(controller.Id()).Register()
-  app.CreateRoute("test/:id", controller.test).Bind(controller.Id()).Register()
+  app.NewRoute("/").Get(controller.index).Register()
+  app.NewRoute("/test/:id").Get(controller.index).Register()
 }
 
 func (c *TestController) index(param bool) error {

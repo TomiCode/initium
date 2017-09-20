@@ -11,6 +11,12 @@ func init() {
   log.Println("Initium app global init.")
 }
 
+// Create application framework instance.
+func Create() *Initium {
+  return &Initium{}
+}
+
+// HTTP request handler.
 func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   log.Println("Request path:", r.URL.Path, "method:", r.Method)
   if r.Method == "GET" && strings.Contains(r.URL.Path, "assets") {
