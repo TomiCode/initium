@@ -1,6 +1,7 @@
 package app
 
 import "log"
+import "net/http"
 
 // Every controller should inherit this struct.
 type AppController struct {
@@ -8,17 +9,34 @@ type AppController struct {
   id uint64
 }
 
+// Application controller handler param.
+type Handler struct {
+  request struct {
+    *http.Request
+    http.ResponseWriter
+  }
+  raw_params []string
+}
+
 // Controller request method.
-type RequestCallback func(bool) error
+type RequestCallback func(*Handler) error
 
 // Memory mapping for all controllers.
-// var appControllers []*AppController
 var appControllers map[uint64]*AppController
 
 // Initialize appControllers mapping.
 func init() {
   log.Println("Initializing controller mappings.")
   appControllers = make(map[uint64]*AppController)
+}
+
+// Create new internal request instance.
+func createHandler(w http.ResponseWriter, r *http.Request) *Handler {
+  return &Handler{request: struct{
+      *http.Request
+      http.ResponseWriter
+    }{r, w},
+  }
 }
 
 // Change controller namespace.

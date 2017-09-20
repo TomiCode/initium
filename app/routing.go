@@ -4,7 +4,15 @@ import "log"
 import "fmt"
 import "regexp"
 import "strings"
-import "net/http"
+
+// Request methods contants.
+const (
+  RequestGet    = 0x00
+  RequestPost   = 0x01
+  RequestPut    = 0x02
+  RequestPatch  = 0x04
+  RequestDelete = 0x08
+)
 
 // Application route element.
 type AppRoute struct {
@@ -26,15 +34,6 @@ type MethodType uint8
 // Route collection type.
 type RouteCollection map[string]*AppRoute
 
-// Request methods contants.
-const (
-  RequestGet    = 0x00
-  RequestPost   = 0x01
-  RequestPut    = 0x02
-  RequestPatch  = 0x04
-  RequestDelete = 0x08
-)
-
 // Application routing table.
 var appRoutes RouteCollection
 
@@ -44,13 +43,23 @@ func init() {
   appRoutes = make(RouteCollection)
 }
 
-// Get corresponding route for a request.
-func (collection RouteCollection) get(request *http.Request) *AppRoute {
-  for id, route := range collection {
-    if route.path.MatchString(request.URL.Path) {
-      log.Println("Found route for request:", id, route)
-      return route
+// Get corresponding route for a internal handler.
+func (collection RouteCollection) from(handler *Handler) *AppRoute {
+  for alias, route := range collection {
+    if !route.path.MatchString(handler.request.URL.Path) {
+      continue
     }
+    log.Println("Found route for request:", alias)
+
+    var scheme = route.path.FindStringSubmatch(handler.request.URL.Path)
+    if handler.request.URL.Path != scheme[0] {
+      log.Println("Something weird.. found", scheme[0], "for", handler.request.URL.Path)
+      continue
+    }
+    if len(scheme) > 1 {
+      handler.raw_params = append(handler.raw_params, scheme[1:]...)
+    }
+    return route
   }
   return nil
 }

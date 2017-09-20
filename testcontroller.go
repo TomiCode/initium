@@ -14,15 +14,15 @@ func init() {
   controller.Register()
 
   app.NewRoute("/").Get(controller.index).Register()
-  app.NewRoute("/test/:id").Get(controller.index).Register()
+  app.NewRoute("/test/:id").Get(controller.test).Register()
 }
 
-func (c *TestController) index(param bool) error {
+func (c *TestController) index(handler *app.Handler) error {
   log.Println("TestController index method.")
   return nil
 }
 
-func (c *TestController) test(param bool) error {
+func (c *TestController) test(handler *app.Handler) error {
   log.Println("TestController test method.")
   return nil
 }
