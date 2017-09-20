@@ -16,12 +16,24 @@ type AppRoute struct {
 
 // Request method callback.
 type RouteMethod struct {
-  method uint8
+  method MethodType
   callback RequestCallback
 }
 
+// Method type.
+type MethodType uint8
+
 // Route collection type.
 type RouteCollection map[string]*AppRoute
+
+// Request methods contants.
+const (
+  RequestGet    = 0x00
+  RequestPost   = 0x01
+  RequestPut    = 0x02
+  RequestPatch  = 0x04
+  RequestDelete = 0x08
+)
 
 // Application routing table.
 var appRoutes RouteCollection
@@ -80,26 +92,31 @@ func NewRoute(path string) *AppRoute {
 
 // Normal basic get request for a route.
 func (route *AppRoute) Get(callback RequestCallback) *AppRoute {
+  route.methods = append(route.methods, RouteMethod{method: RequestGet, callback: callback})
   return route
 }
 
 // Post callback for route.
 func (route *AppRoute) Post(callback RequestCallback) *AppRoute {
+  route.methods = append(route.methods, RouteMethod{method: RequestPost, callback: callback})
   return route
 }
 
 // Put request callback.
 func (route *AppRoute) Put(callback RequestCallback) *AppRoute {
+  route.methods = append(route.methods, RouteMethod{method: RequestPut, callback: callback})
   return route
 }
 
 // Patch callback request method.
 func (route *AppRoute) Patch(callback RequestCallback) *AppRoute {
+  route.methods = append(route.methods, RouteMethod{method: RequestPatch, callback: callback})
   return route
 }
 
 // Delete callback request method.
 func (route *AppRoute) Delete(callback RequestCallback) *AppRoute {
+  route.methods = append(route.methods, RouteMethod{method: RequestDelete, callback: callback})
   return route
 }
 
