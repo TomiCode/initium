@@ -7,11 +7,12 @@ import "strings"
 
 // Request methods contants.
 const (
-  RequestGet    = 0x00
-  RequestPost   = 0x01
-  RequestPut    = 0x02
-  RequestPatch  = 0x04
-  RequestDelete = 0x08
+  RequestGet     = 0x00
+  RequestPost    = 0x01
+  RequestPut     = 0x02
+  RequestPatch   = 0x04
+  RequestDelete  = 0x08
+  RequestInvalid = 0xF0
 )
 
 // Application route element.
@@ -73,6 +74,19 @@ func (route *AppRoute) pathContent() string {
 func (route *AppRoute) compile() (err error) {
   route.path, err = regexp.Compile(route.pathContent())
   return
+}
+
+func (route *AppRoute) getCallback(handler *Handler) RequestCallback {
+  var method_type = handler.getMethodType()
+  for _, method := range route.methods {
+    if method.method == method_type {
+      log.Println("Found handler method callback.")
+      return method.callback
+    }
+  }
+
+  log.Println("Route handler method callback undefined!")
+  return nil
 }
 
 // Create routing object with parsed path and callback method.

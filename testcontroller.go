@@ -15,6 +15,7 @@ func init() {
 
   app.NewRoute("/").Get(controller.index).Register()
   app.NewRoute("/test/:id").Get(controller.test).Register()
+  app.NewRoute("/test_post").Post(controller.test_post).Register()
 }
 
 func (c *TestController) index(handler *app.Handler) error {
@@ -24,6 +25,11 @@ func (c *TestController) index(handler *app.Handler) error {
 
 func (c *TestController) test(handler *app.Handler) error {
   log.Println("TestController test method.")
+  return nil
+}
+
+func (c *TestController) test_post(handler *app.Handler) error {
+  log.Println("TestController test_post method.")
   return nil
 }
 

@@ -30,6 +30,24 @@ func init() {
   appControllers = make(map[uint64]*AppController)
 }
 
+// Get the method type from a handler.
+func (handler *Handler) getMethodType() MethodType {
+  switch(handler.request.Method) {
+  case http.MethodGet:
+    return RequestGet
+  case http.MethodPost:
+    return RequestPost
+  case http.MethodPut:
+    return RequestPut
+  case http.MethodPatch:
+    return RequestPatch
+  case http.MethodDelete:
+    return RequestDelete
+  default:
+    return RequestInvalid
+  }
+}
+
 // Create new internal request instance.
 func createHandler(w http.ResponseWriter, r *http.Request) *Handler {
   return &Handler{request: struct{

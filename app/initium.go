@@ -29,7 +29,10 @@ func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  log.Println(route)
-  log.Println(handler)
-  route.methods[0].callback(handler)
+  var callback = route.getCallback(handler)
+  log.Println("Callback:", callback)
+
+  if callback != nil {
+    callback(handler)
+  }
 }
