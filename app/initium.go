@@ -33,6 +33,10 @@ func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   log.Println("Callback:", callback)
 
   if callback != nil {
-    callback(handler)
+    response := callback(handler)
+    if response != nil {
+      log.Println("Calling response callback..")
+      response()
+    }
   }
 }

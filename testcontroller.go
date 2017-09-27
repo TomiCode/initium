@@ -18,17 +18,20 @@ func init() {
   app.NewRoute("/test_post").Post(controller.test_post).Register()
 }
 
-func (c *TestController) index(handler *app.Handler) error {
+func (c *TestController) index(handler *app.Handler) app.Response {
   log.Println("TestController index method.")
-  return nil
+  return func() error {
+    log.Println("TestController index response method.")
+    return nil
+  }
 }
 
-func (c *TestController) test(handler *app.Handler) error {
+func (c *TestController) test(handler *app.Handler) app.Response {
   log.Println("TestController test method.")
   return nil
 }
 
-func (c *TestController) test_post(handler *app.Handler) error {
+func (c *TestController) test_post(handler *app.Handler) app.Response {
   log.Println("TestController test_post method.")
   return nil
 }

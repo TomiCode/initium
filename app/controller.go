@@ -18,8 +18,10 @@ type Handler struct {
   raw_params []string
 }
 
+type Response func() error
+
 // Controller request method.
-type RequestCallback func(*Handler) error
+type RequestCallback func(*Handler) Response
 
 // Memory mapping for all controllers.
 var appControllers map[uint64]*AppController
