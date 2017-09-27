@@ -1,6 +1,7 @@
 package app
 
 import "log"
+import "strings"
 import "net/http"
 
 // Every controller should inherit this struct.
@@ -57,6 +58,16 @@ func createHandler(w http.ResponseWriter, r *http.Request) *Handler {
       http.ResponseWriter
     }{r, w},
   }
+}
+
+// Try to serve a public file asset.
+func (handler *Handler) tryFile() bool {
+  if !strings.Contains(handler.request.URL.Path, ".") {
+    log.Println("This route does not request a file..")
+    return false
+  }
+
+  return false
 }
 
 // Change controller namespace.

@@ -7,7 +7,9 @@ import "log"
 func main() {
   log.Println("Web application startup.")
 
-  var initium = app.Create()
+  var initium = app.Create(true)
+  initium.SetTemplateDir("templates")
+
   if err := http.ListenAndServe("127.0.0.1:1337", initium); err != nil {
     log.Fatal(err)
   }

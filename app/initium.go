@@ -5,6 +5,7 @@ import "log"
 import "net/http"
 
 type Initium struct {
+  development bool
 }
 
 func init() {
@@ -12,8 +13,8 @@ func init() {
 }
 
 // Create application framework instance.
-func Create() *Initium {
-  return &Initium{}
+func Create(dev bool) *Initium {
+  return &Initium{development: dev}
 }
 
 // HTTP request handler.
@@ -22,6 +23,13 @@ func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
   var handler = createHandler(w, r)
   log.Println(handler)
+
+  if app.development {
+    if handler.tryFile() {
+      log.Println("Found file, serving content for this request.")
+      return
+    }
+  }
 
   var route = appRoutes.from(handler)
   if route == nil {
