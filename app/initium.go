@@ -21,30 +21,30 @@ func Create(dev bool) *Initium {
 func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   log.Println("Request path:", r.URL.Path, "method:", r.Method)
 
-  var handler = createHandler(w, r)
-  log.Println(handler)
+  var request = createRequest(r)
+  log.Println("Local app request:", request)
 
   if app.development {
-    if handler.tryFile() {
+    if request.tryFile() {
       log.Println("Found file, serving content for this request.")
       return
     }
   }
 
-  var route = appRoutes.from(handler)
+  var route = appRoutes.from(request)
   if route == nil {
-    log.Println("No route for", r.URL.Path)
+    log.Println("No route for", request.URL.Path)
     return
   }
 
-  var callback = route.getCallback(handler)
+  var callback = route.getCallback(request)
   log.Println("Callback:", callback)
 
   if callback != nil {
-    response := callback(handler)
+    response := callback(request)
     if response != nil {
       log.Println("Calling response callback..")
-      response()
+      response(nil)
     }
   }
 }

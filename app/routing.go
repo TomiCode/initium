@@ -45,20 +45,20 @@ func init() {
 }
 
 // Get corresponding route for a internal handler.
-func (collection RouteCollection) from(handler *Handler) *AppRoute {
+func (collection RouteCollection) from(request *Request) *AppRoute {
   for alias, route := range collection {
-    if !route.path.MatchString(handler.request.URL.Path) {
+    if !route.path.MatchString(request.URL.Path) {
       continue
     }
     log.Println("Found route for request:", alias)
 
-    var scheme = route.path.FindStringSubmatch(handler.request.URL.Path)
-    if handler.request.URL.Path != scheme[0] {
-      log.Println("Something weird.. found", scheme[0], "for", handler.request.URL.Path)
+    var scheme = route.path.FindStringSubmatch(request.URL.Path)
+    if request.URL.Path != scheme[0] {
+      log.Println("Something weird.. found", scheme[0], "for", request.URL.Path)
       continue
     }
     if len(scheme) > 1 {
-      handler.raw_params = append(handler.raw_params, scheme[1:]...)
+      request.raw_params = append(request.raw_params, scheme[1:]...)
     }
     return route
   }
@@ -76,16 +76,15 @@ func (route *AppRoute) compile() (err error) {
   return
 }
 
-func (route *AppRoute) getCallback(handler *Handler) RequestCallback {
-  var method_type = handler.getMethodType()
+func (route *AppRoute) getCallback(request *Request) RequestCallback {
+  var method_type = request.getMethodType()
   for _, method := range route.methods {
     if method.method == method_type {
-      log.Println("Found handler method callback.")
+      log.Println("Found callback for method:", request.Method)
       return method.callback
     }
   }
-
-  log.Println("Route handler method callback undefined!")
+  log.Println("No callback for method", request.Method)
   return nil
 }
 

@@ -10,19 +10,22 @@ type AppController struct {
   id uint64
 }
 
-// Application controller handler param.
-type Handler struct {
-  request struct {
-    *http.Request
-    http.ResponseWriter
-  }
+// Request parameeter for controllers.
+type Request struct {
+  *http.Request
   raw_params []string
 }
 
-type Response func() error
+// Controller response callback parameter.
+type Handler struct {
+  http.ResponseWriter
+}
+
+// Response callback for views and data responses.
+type Response func(*Handler) error
 
 // Controller request method.
-type RequestCallback func(*Handler) Response
+type RequestCallback func(*Request) Response
 
 // Memory mapping for all controllers.
 var appControllers map[uint64]*AppController
@@ -34,8 +37,8 @@ func init() {
 }
 
 // Get the method type from a handler.
-func (handler *Handler) getMethodType() MethodType {
-  switch(handler.request.Method) {
+func (request *Request) getMethodType() MethodType {
+  switch(request.Method) {
   case http.MethodGet:
     return RequestGet
   case http.MethodPost:
@@ -52,21 +55,21 @@ func (handler *Handler) getMethodType() MethodType {
 }
 
 // Create new internal request instance.
-func createHandler(w http.ResponseWriter, r *http.Request) *Handler {
-  return &Handler{request: struct{
-      *http.Request
-      http.ResponseWriter
-    }{r, w},
-  }
+func createRequest(httpRequest *http.Request) *Request {
+  return &Request{Request: httpRequest}
+}
+
+// Create new internal response handler.
+func createHandler(httpWriter http.ResponseWriter) *Handler {
+  return &Handler{ResponseWriter: httpWriter}
 }
 
 // Try to serve a public file asset.
-func (handler *Handler) tryFile() bool {
-  if !strings.Contains(handler.request.URL.Path, ".") {
+func (request *Request) tryFile() bool {
+  if !strings.Contains(request.URL.Path, ".") {
     log.Println("This route does not request a file..")
     return false
   }
-
   return false
 }
 
