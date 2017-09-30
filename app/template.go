@@ -33,13 +33,13 @@ func registerTemplate(path string, file os.FileInfo, err error) error {
   var end, start = strings.Index(path, "."), strings.Index(path, "/") + 1
   var alias = strings.Replace(path[start:end], "/", ".", -1)
 
-  log.Println("Registering template alias:", alias)
   content, err := ioutil.ReadFile(path)
   if err != nil {
     log.Println("Error while reading template content:", err)
     return nil
   }
 
+  log.Println("Registering template alias:", alias)
   if appTemplate == nil {
     appTemplate, err = template.New(alias).Funcs(templateFuncs).Parse(string(content))
   } else {

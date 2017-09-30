@@ -5,7 +5,7 @@ import "log"
 import "net/http"
 
 type Initium struct {
-  development bool
+  static string
 }
 
 func init() {
@@ -13,8 +13,14 @@ func init() {
 }
 
 // Create application framework instance.
-func Create(dev bool) *Initium {
-  return &Initium{development: dev}
+func Create() *Initium {
+  return &Initium{}
+}
+
+func (app *Initium) EnableStaticFiles(dir string) *Initium {
+  log.Println("Enabling static file serving from", dir)
+  app.static = dir
+  return app
 }
 
 // HTTP request handler.
@@ -24,8 +30,9 @@ func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   var request = createRequest(r)
   log.Println("Local app request:", request)
 
-  if app.development {
-    if request.tryFile() {
+  if app.static != "" {
+    log.Println("Static files enabled, checking request for a static file..")
+    if app.tryServeFile(request, w) {
       log.Println("Found file, serving content for this request.")
       return
     }
@@ -48,4 +55,8 @@ func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
       response(handler)
     }
   }
+}
+
+func (app *Initium) tryServeFile(request *Request, w http.ResponseWriter) bool {
+  return false
 }
