@@ -5,14 +5,17 @@ import "fmt"
 import "regexp"
 import "strings"
 
+// Method type.
+type MethodType uint8
+
 // Request methods contants.
 const (
-  RequestGet     = 0x00
-  RequestPost    = 0x01
-  RequestPut     = 0x02
-  RequestPatch   = 0x04
-  RequestDelete  = 0x08
-  RequestInvalid = 0xF0
+  RequestGet MethodType = iota
+  RequestPost
+  RequestPut
+  RequestPatch
+  RequestDelete
+  RequestInvalid
 )
 
 // Application route element.
@@ -28,9 +31,6 @@ type RouteMethod struct {
   method MethodType
   callback RequestCallback
 }
-
-// Method type.
-type MethodType uint8
 
 // Route collection type.
 type RouteCollection map[string]*AppRoute

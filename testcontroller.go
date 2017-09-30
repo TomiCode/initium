@@ -10,7 +10,7 @@ type TestController struct {
 func init() {
   log.Println("TestController global init method.")
 
-  controller := &TestController{}
+  var controller = &TestController{}
   controller.Register()
 
   app.NewRoute("/").Get(controller.index).Register()
@@ -22,7 +22,7 @@ func (c *TestController) index(request *app.Request) app.Response {
   log.Println("TestController index method.")
   return func(handler *app.Handler) error {
     log.Println("TestController index response method.")
-    return nil
+    return handler.View("test.index", nil)
   }
 }
 

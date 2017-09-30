@@ -67,10 +67,12 @@ func createHandler(httpWriter http.ResponseWriter) *Handler {
 // Try to serve a public file asset.
 func (request *Request) tryFile() bool {
   if !strings.Contains(request.URL.Path, ".") {
-    log.Println("This route does not request a file..")
+    log.Println("This is not a file request.")
     return false
   }
-  return false
+
+  log.Println("Serve remote file for path", request.URL.Path)
+  return true
 }
 
 // Change controller namespace.
