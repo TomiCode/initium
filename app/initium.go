@@ -1,7 +1,9 @@
 package app
 
+import "os"
 import "log"
-// import "strings"
+import "time"
+import "strings"
 import "net/http"
 
 type Initium struct {
@@ -27,16 +29,16 @@ func (app *Initium) EnableStaticFiles(dir string) *Initium {
 func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   log.Println("Request path:", r.URL.Path, "method:", r.Method)
 
-  var request = createRequest(r)
-  log.Println("Local app request:", request)
-
   if app.static != "" {
     log.Println("Static files enabled, checking request for a static file..")
-    if app.tryServeFile(request, w) {
+    if app.tryServeFile(w, r) {
       log.Println("Found file, serving content for this request.")
       return
     }
   }
+
+  var request = createRequest(r)
+  log.Println("Local app request:", request)
 
   var route = appRoutes.from(request)
   if route == nil {
@@ -57,6 +59,25 @@ func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func (app *Initium) tryServeFile(request *Request, w http.ResponseWriter) bool {
-  return false
+func (app *Initium) tryServeFile(w http.ResponseWriter, r *http.Request) bool {
+  if !strings.Contains(r.URL.Path, ".") {
+    log.Println("This is not a file request.")
+    return false
+  }
+
+  log.Println("File request:", r.URL.Path)
+  start := strings.LastIndex(r.URL.Path, "/") + 1
+  fileName := r.URL.Path[start:]
+
+  log.Println("Filename:", fileName)
+
+  file, err := os.Open(app.static + r.URL.Path)
+  if err != nil {
+    log.Println("Error while serving static file:", err)
+    return false
+  }
+  defer file.Close()
+
+  http.ServeContent(w, r, fileName, time.Now(), file)
+  return true
 }

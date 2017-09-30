@@ -64,17 +64,6 @@ func createHandler(httpWriter http.ResponseWriter) *Handler {
   return &Handler{ResponseWriter: httpWriter}
 }
 
-// Try to serve a public file asset.
-func (request *Request) tryFile() bool {
-  if !strings.Contains(request.URL.Path, ".") {
-    log.Println("This is not a file request.")
-    return false
-  }
-
-  log.Println("Serve remote file for path", request.URL.Path)
-  return true
-}
-
 // Change controller namespace.
 func (controller *AppController) Alias(alias string) (*AppController) {
   log.Println("Set controller alias to:", alias)

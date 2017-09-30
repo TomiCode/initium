@@ -2,26 +2,49 @@ package app
 
 import "os"
 import "log"
+import "bytes"
 import "strings"
 import "io/ioutil"
 import "path/filepath"
 import "html/template"
 
+// Main template frame.
+type TemplateFrame struct {
+  template string
+  content interface{}
+}
+
 // Template function maps.
-var templateFuncs = template.FuncMap{}
+var templateFuncs = template.FuncMap{
+  "yeld": tmplFunc_yeld,
+}
 
 // App root template pointer.
 var appTemplate *template.Template
+
+// Yeld function.
+func tmplFunc_yeld(frame TemplateFrame) template.HTML {
+  log.Println("AppFrame yeld", frame)
+
+  var content bytes.Buffer
+  var err = appTemplate.ExecuteTemplate(&content, frame.template, frame.content)
+  if err != nil {
+    log.Println("Yeld execution error:", err)
+    return ""
+  }
+  return template.HTML(content.String())
+}
 
 // Register the template directory.
 func (app *Initium) SetTemplateDir(dir string) *Initium {
   if appTemplate != nil {
     log.Println("Warning: Existing template store exists in memory!")
   }
-
   if err := filepath.Walk(dir, registerTemplate); err != nil {
     log.Fatal(err)
   }
+
+  log.Println("Templates load finished.")
   return app
 }
 
@@ -52,18 +75,14 @@ func registerTemplate(path string, file os.FileInfo, err error) error {
   return nil
 }
 
-// Execute template from handler(?)
+// Execute application frame.
 func (handler *Handler) View(template string, content interface{}) error {
   log.Println("Creating response view from", template)
-  var err = appTemplate.ExecuteTemplate(handler, template, content)
-  if err != nil {
-    log.Println("Error while template execute:", err)
-  }
-  return nil
-}
 
-// Json response handler(?)
-func (handler *Handler) Json(content interface{}) error {
-  log.Println("Creating json response for this request.")
+  var frame = TemplateFrame{template: template, content: content}
+  var err = appTemplate.ExecuteTemplate(handler, "app", frame)
+  if err != nil {
+    log.Println("Error while appframe execute:", err)
+  }
   return nil
 }
