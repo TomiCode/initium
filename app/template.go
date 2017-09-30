@@ -3,6 +3,7 @@ package app
 import "os"
 import "log"
 import "strings"
+import "io/ioutil"
 import "path/filepath"
 import "html/template"
 
@@ -33,10 +34,16 @@ func registerTemplate(path string, file os.FileInfo, err error) error {
   var alias = strings.Replace(path[start:end], "/", ".", -1)
 
   log.Println("Registering template alias:", alias)
+  content, err := ioutil.ReadFile(path)
+  if err != nil {
+    log.Println("Error while reading template content:", err)
+    return nil
+  }
+
   if appTemplate == nil {
-    appTemplate, err = template.New(alias).Funcs(templateFuncs).ParseFiles(path)
+    appTemplate, err = template.New(alias).Funcs(templateFuncs).Parse(string(content))
   } else {
-    _, err = appTemplate.New(alias).ParseFiles(path)
+    _, err = appTemplate.New(alias).Parse(string(content))
   }
 
   if err != nil {
@@ -48,6 +55,10 @@ func registerTemplate(path string, file os.FileInfo, err error) error {
 // Execute template from handler(?)
 func (handler *Handler) View(template string, content interface{}) error {
   log.Println("Creating response view from", template)
+  var err = appTemplate.ExecuteTemplate(handler, template, content)
+  if err != nil {
+    log.Println("Error while template execute:", err)
+  }
   return nil
 }
 

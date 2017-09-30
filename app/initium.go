@@ -44,7 +44,8 @@ func (app *Initium) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     response := callback(request)
     if response != nil {
       log.Println("Calling response callback..")
-      response(nil)
+      var handler = createHandler(w)
+      response(handler)
     }
   }
 }

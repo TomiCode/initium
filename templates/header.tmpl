@@ -45,14 +45,14 @@
           <div class="ui pointing dropdown item">
             <i class="angle double right icon"></i>{{.Current.Header.Name}} <i class="dropdown icon"></i>
             <div class="menu">
-              <a href="{{route .Current.Header.Route}}" class="item">Index</a>
+              <a href="" class="item">Index</a>
               {{range .Current.Options}}
                 {{if .Name}}
                   <div class="divider"></div>
                   <div class="header">{{.Name}}</div>
                 {{end}}
                 {{range .Collection}}
-                  <a href="{{route .Route}}" class="item">{{.Name}}</a>
+                  <a href="{{.Route}}" class="item">{{.Name}}</a>
                 {{end}}
               {{end}}
             </div>
@@ -70,7 +70,7 @@
           <div class="menu">
             <div class="header">Modules</div>
             {{range .Elements}}
-              <a href="{{route .Route}}" class="item">{{.Name}}</a>
+              <a href="{{ .Route}}" class="item">{{.Name}}</a>
             {{end}}
           </div>
         </div>
@@ -92,7 +92,7 @@
           <div class="ui pointing dropdown item">
             <i class="user icon"></i> Account <i class="dropdown icon"></i>
             <div class="menu">
-              <a href="{{route "auth.login"}}" class="item">Login</a>
+              <a href="{{"auth.login"}}" class="item">Login</a>
               <div class="divider"></div>
               <a href="" class="item">Register</a>
             </div> 
