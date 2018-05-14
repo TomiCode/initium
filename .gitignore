@@ -1,4 +1,5 @@
 initium
-
+node_modules/
+dist/
 __testing/
 .DS_Store

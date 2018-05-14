@@ -1,7 +1,7 @@
 package app
 
 import "log"
-import "strings"
+// import "strings"
 import "net/http"
 
 // Every controller should inherit this struct.
