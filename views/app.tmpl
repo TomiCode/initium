@@ -12,11 +12,7 @@
   <link rel="stylesheet" type="text/css" href="/css/initium.css">
   <!-- jQuery 3.1.0 -->
   <script type="text/javascript" src="/js/jquery-3.1.0.js"></script>
-  <!-- Semantic UI Javascript file -->
-  <script type="text/javascript" src="/js/semantic.js"></script> 
-  <!-- Initium api -->
-  <script type="text/javascript" src="/js/initium-forms.api.js"></script>
-  <!-- Initium javascript ;) -->
+  <!-- Initium :) -->
   <script type="text/javascript" src="/js/initium.js"></script>
 </head>
 <body>
@@ -26,91 +22,16 @@
   <div class="ui container">
     <h1>Initium</h1>
   </div>
-  <!-- Initium Global menu -->
-  <div class="ui secondary general menu">
-    <div class="ui container">
-      <div class="item logo">
-        <img src="/initium.png" />
-      </div>
-      {{if .Current}}
-        {{if .Current.Header.Route}}
-          <div class="ui pointing dropdown item">
-            <i class="angle double right icon"></i>{{.Current.Header.Name}} <i class="dropdown icon"></i>
-            <div class="menu">
-              <a href="{{route .Current.Header.Route}}" class="item">Index</a>
-              {{range .Current.Options}}
-                {{if .Name}}
-                  <div class="divider"></div>
-                  <div class="header">{{.Name}}</div>
-                {{end}}
-                {{range .Collection}}
-                  <a href="{{route .Route}}" class="item">{{.Name}}</a>
-                {{end}}
-              {{end}}
-            </div>
-          </div>
-        {{else}}
-          <div class="item">
-            <i class="angle double right icon"></i>{{.Current.Header.Name}}
-          </div>
-        {{end}}
-      {{end}}
 
-      {{if .Elements}}
-        <div class="ui pointing dropdown item">
-          Modules <i class="dropdown icon"></i>
-          <div class="menu">
-            <div class="header">Modules</div>
-            {{range .Elements}}
-              <a href="{{route .Route}}" class="item">{{.Name}}</a>
-            {{end}}
-          </div>
-        </div>
-      {{end}}
-      
-      <div class="right menu">
-        {{if .User}}
-          <div class="ui pointing dropdown item">
-            <img class="ui avatar image" src="/initium.png" />
-            {{.User.Name}} <i class="dropdown icon"></i>
-            <div class="menu">
-              <a href="" class="item">System settings</a>
-              <div class="divider"></div>
-              <a href="" class="item">Profile</a>
-              <a href="" class="item">Logout</a>
-            </div> 
-          </div>
-        {{else}}
-          <div class="ui pointing dropdown item">
-            <i class="user icon"></i> Account <i class="dropdown icon"></i>
-            <div class="menu">
-              <a href="{{route "auth.login"}}" class="item">Login</a>
-              <div class="divider"></div>
-              <a href="" class="item">Register</a>
-            </div> 
-          </div>
-        {{end}}
-      </div>
-    </div>
-  </div>
   <!-- Alerts container -->
-  <div class="ui container">    
-    {{range .Alerts}}
-      <div class="ui {{.Type}} message">
-        <i class="close icon"></i>
-        <div class="header">{{.Title}}</div>
-        <p>{{.Message}}</p>
-      </div>
-    {{end}}
-    {{if .Debug}}
-      <div class="ui teal message">
-        <div class="header">Initium development</div>
-        This is an early development version of Initium. All visible content is work in progres and will mostly change within the development cycle. Please report all issues to the issue tracker at git.nullptr.pl.
-        <p>Session: 
-          <code>{{.Debug.SessionId}}, {{if .User}}Authorized to: {{.Debug.AuthToken}}, {{.User.Name}}{{else}}Not authorized{{end}}</code>
-        </p>
-      </div>
-    {{end}}
+  <div class="ui container">
+    <div class="ui teal message">
+      <div class="header">Initium development</div>
+      This is an early development version of Initium. All visible content is work in progres and will mostly change within the development cycle.
+      <p>
+        <code></code>
+      </p>
+    </div>
   </div>
 </body>
 </html>
