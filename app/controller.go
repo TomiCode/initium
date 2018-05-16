@@ -1,7 +1,7 @@
 package app
 
 import "log"
-// import "strings"
+import "math/rand"
 import "net/http"
 
 // Every controller should inherit this struct.
@@ -73,12 +73,10 @@ func (controller *AppController) Alias(alias string) (*AppController) {
 
 // Register the controller into Intium.
 func (controller *AppController) Register() bool {
-  log.Printf("Register controller: %p\n", controller)
-  appControllers[1] = controller
-  controller.id = 1
-  // appControllers = append(appControllers, controller)
+  controller.id = rand.Uint64()
+  appControllers[controller.id] = controller
 
-  log.Println("Registered controllers:", len(appControllers))
+  log.Printf("Controller registered: %p, id: %x\n", controller, controller.id)
   return true
 }
 

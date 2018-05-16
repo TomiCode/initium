@@ -20,6 +20,7 @@ func init() {
 
 func (c *TestController) index(request *app.Request) app.Response {
   log.Println("TestController index method.")
+
   return func(handler *app.Handler) error {
     log.Println("TestController index response method.")
     return handler.View("test.index", nil)
@@ -28,7 +29,11 @@ func (c *TestController) index(request *app.Request) app.Response {
 
 func (c *TestController) test(request *app.Request) app.Response {
   log.Println("TestController test method.")
-  return nil
+
+  return func(handler *app.Handler) error {
+    log.Println("TestController test method response.")
+    return handler.View("test.index", struct { test string } { "hello World!" })
+  }
 }
 
 func (c *TestController) test_post(request *app.Request) app.Response {
